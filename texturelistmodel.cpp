@@ -168,6 +168,36 @@ const QImage& TextureListModel::image(const QModelIndex& index)
 		return QImage();
 }
 
+QString TextureListModel::info(const QModelIndex& index)
+{
+	if(index.row() < Images.count())
+	{
+		QString info;
+		ImageInFile_t imageinfo = Images[index.row()];
+		info = QString("Size: %1 x %2, Format: ").arg(imageinfo.image.width()).arg(imageinfo.image.height());
+		
+		switch(imageinfo.format)
+		{
+			case TF_A8R8G8B8:
+				info += "TF_A8R8G8B8";
+				break;
+			case TF_DXT1:
+				info += "TF_DXT1";
+				break;
+			case TF_DXT5:
+				info += "TF_DXT5";
+				break;
+			default:
+				info += "Unknown";
+				break;
+		}
+		
+		return info;
+	}
+	else
+		return "";
+}
+
 void TextureListModel::decodeRGBAImage(QImage &image, qint64 width, qint64 height, QByteArray &imagedata)
 {
 	for(int j = 0; j < 4 * width * height; j += 4)

@@ -12,17 +12,22 @@
 #include <QFileDialog>
 #include <QFile>
 #include <QMessageBox>
+#include <QVBoxLayout>
 #include <QDebug>
+#include <QSettings>
 #include "texturelistmodel.h"
 
 PapaTextureEditor::PapaTextureEditor()
- : 	Image(NULL), Label(NULL), Model(NULL), TextureList(NULL)
+ : Image(NULL), Label(NULL), InfoLabel(NULL), Model(NULL), TextureList(NULL)
 {
 	setMinimumSize(1000, 700);
 
-	QSplitter *splitter = new QSplitter(Qt::Horizontal, this);
-	
-	QScrollArea *scrollarea = new QScrollArea(this);
+	QSplitter *horsplitter = new QSplitter(Qt::Horizontal, this);
+	QWidget *rightSideWidget = new QWidget(this);
+
+	QVBoxLayout *rightSideLayout = new QVBoxLayout(rightSideWidget);
+
+	QScrollArea *scrollarea = new QScrollArea(rightSideWidget);
 	Label = new QLabel(scrollarea);
 	scrollarea->setWidget(Label);
 
@@ -31,13 +36,20 @@ PapaTextureEditor::PapaTextureEditor()
 	TextureList->setModel(Model);
 	TextureList->setRootIsDecorated(false);
 	TextureList->setMaximumWidth(300);
+	TextureList->setSelectionMode(QAbstractItemView::SingleSelection);
 	connect(TextureList, SIGNAL(activated(const QModelIndex &)), SLOT(textureClicked(const QModelIndex &)));
+	
+	InfoLabel = new QLabel(rightSideWidget);
+	InfoLabel->setText("Info");
+//	InfoLabel->setFixedHeight(50);
 
-	splitter->addWidget(TextureList);
-	splitter->addWidget(scrollarea);
+	horsplitter->addWidget(TextureList);
+	rightSideLayout->addWidget(scrollarea);
+	rightSideLayout->addWidget(InfoLabel);
+	horsplitter->addWidget(rightSideWidget);
 
 
-	setCentralWidget( splitter );
+	setCentralWidget( horsplitter );
 	QAction* quitAction = new QAction(this);
 	quitAction->setText( "&Quit" );
 	quitAction->setShortcut(QKeySequence("Ctrl+Q"));
@@ -64,24 +76,7 @@ PapaTextureEditor::PapaTextureEditor()
 PapaTextureEditor::~PapaTextureEditor()
 {
 }
-/*
-void papatexturereader::displayImage()
-{
-	Image->fill(0);
 
-	QFile papaFile("skybox_01_back.papa");
-	if(!papaFile.open(QIODevice::ReadOnly))
-		return;
-
-	papaFile.seek(0x80);
-	QByteArray data = papaFile.read(4*1024*1024);
-	for(int i = 0; i < 4 * 1024 * 1024; i += 4)
-	{
-		int pixelindex = i / 4;
-		      Image->setPixel(pixelindex / 1024, pixelindex % 1024, qRgba(data[i], data[i+1], data[i+2], data[i+3]));
-	}
-}
-*/
 void PapaTextureEditor::saveImage()
 {
 	QFile papaFile("skybox_01_back.papa");
@@ -117,9 +112,11 @@ void PapaTextureEditor::putMeInIt()
 
 void PapaTextureEditor::openDirectory()
 {
-	QString foldername = QFileDialog::getExistingDirectory(this, "Open texture folder", "~/.local");
+	QSettings settings("DeathByDenim", "papatextureeditor");
+	QString foldername = QFileDialog::getExistingDirectory(this, "Open texture folder", settings.value("texturedirectory").toString());
 	if(Model && foldername.length() > 0)
 	{
+		settings.setValue("texturedirectory", QFileInfo(foldername).canonicalPath());
 		if(!Model->loadFromDirectory(foldername))
 		{
 			QMessageBox::critical(this, "I/O error", QString("Couldn't open \"%1\".").arg(foldername));
@@ -131,6 +128,8 @@ void PapaTextureEditor::textureClicked(const QModelIndex& index)
 {
 	Label->setPixmap(QPixmap::fromImage(Model->image(index)));
 	Label->setMinimumSize(Model->image(index).size());
+
+	InfoLabel->setText(Model->info(index));
 }
 
 void PapaTextureEditor::importImage()
@@ -148,9 +147,11 @@ void PapaTextureEditor::importImage()
 	}
 	filter += ')';
 
-	QString filename = QFileDialog::getOpenFileName(this, "Open image", "~/Afbeeldingen", filter);
+	QSettings settings("DeathByDenim", "papatextureeditor");
+	QString filename = QFileDialog::getOpenFileName(this, "Open image", settings.value("importdirectory").toString(), filter);
 	if(TextureList && Model && filename.length() > 0)
 	{
+		settings.setValue("importdirectory", QFileInfo(filename).canonicalPath());
 		if(Model->importImage(filename, TextureList->currentIndex()))
 			textureClicked(TextureList->currentIndex());
 		else

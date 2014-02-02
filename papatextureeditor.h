@@ -19,6 +19,7 @@ private:
 	QLabel *Label;
 	TextureListModel* Model;
     QTreeView* TextureList;
+    QLabel* InfoLabel;
 public:
     PapaTextureEditor();
     virtual ~PapaTextureEditor();

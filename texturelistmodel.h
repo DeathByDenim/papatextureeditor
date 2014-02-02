@@ -38,6 +38,7 @@ public:
 	bool importImage(const QString& name, const QModelIndex& index);
     bool loadFromDirectory(const QString& foldername);
 	const QImage &image(const QModelIndex & index);
+	QString info(const QModelIndex& index);
 
 private:
 	struct ImageInFile_t
