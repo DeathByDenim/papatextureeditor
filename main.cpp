@@ -1,11 +1,11 @@
 #include <QtGui/QApplication>
-#include "papatexturereader.h"
+#include "papatextureeditor.h"
 
 
 int main(int argc, char** argv)
 {
     QApplication app(argc, argv);
-    papatexturereader foo;
+    PapaTextureEditor foo;
     foo.show();
     return app.exec();
 }
