@@ -13,8 +13,6 @@ class PapaTextureEditor : public QMainWindow
 Q_OBJECT
 
 private:
-	void readImage();
-
 	QImage *Image;
 	QLabel *Label;
 	TextureListModel* Model;
@@ -27,6 +25,7 @@ public:
 public slots:
 	void openDirectory();
 	void importImage();
+	void exportImage();
     void saveImage();
     void putMeInIt();
 	void textureClicked(const QModelIndex& index);

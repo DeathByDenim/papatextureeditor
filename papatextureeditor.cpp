@@ -13,9 +13,11 @@
 #include <QFile>
 #include <QMessageBox>
 #include <QVBoxLayout>
+#include <qimagewriter.h>
 #include <QDebug>
 #include <QSettings>
 #include "texturelistmodel.h"
+#include "papafile.h"
 
 PapaTextureEditor::PapaTextureEditor()
  : Image(NULL), Label(NULL), InfoLabel(NULL), Model(NULL), TextureList(NULL)
@@ -35,7 +37,7 @@ PapaTextureEditor::PapaTextureEditor()
 	Model = new TextureListModel(this);
 	TextureList->setModel(Model);
 	TextureList->setRootIsDecorated(false);
-	TextureList->setMaximumWidth(300);
+	TextureList->setMaximumWidth(400);
 	TextureList->setSelectionMode(QAbstractItemView::SingleSelection);
 	connect(TextureList, SIGNAL(activated(const QModelIndex &)), SLOT(textureClicked(const QModelIndex &)));
 	
@@ -59,18 +61,25 @@ PapaTextureEditor::PapaTextureEditor()
 */	QAction* importAction = new QAction(this);
 	importAction->setText( "&Import..." );
 	importAction->setShortcut(QKeySequence("Ctrl+i"));
+	QAction* exportAction = new QAction(this);
+	exportAction->setText( "&Export..." );
+	exportAction->setShortcut(QKeySequence("Ctrl+e"));
 	QAction* openAction = new QAction(this);
 	openAction->setText( "&Open directory..." );
 	openAction->setShortcut(QKeySequence("Ctrl+O"));
 	connect(quitAction, SIGNAL(triggered()), SLOT(close()) );
 //	connect(saveAction, SIGNAL(triggered()), SLOT(saveImage()) );
 	connect(importAction, SIGNAL(triggered()), SLOT(importImage()));
+	connect(exportAction, SIGNAL(triggered()), SLOT(exportImage()));
 	connect(openAction, SIGNAL(triggered()), SLOT(openDirectory()));
 	QMenu *menu = menuBar()->addMenu("&File");
 	menu->addAction(openAction);
 	menu->addAction(importAction);
+	menu->addAction(exportAction);
 //	menu->addAction(saveAction);
 	menu->addAction(quitAction);
+	
+	importAction->setEnabled(false);
 }
 
 PapaTextureEditor::~PapaTextureEditor()
@@ -116,7 +125,7 @@ void PapaTextureEditor::openDirectory()
 	QString foldername = QFileDialog::getExistingDirectory(this, "Open texture folder", settings.value("texturedirectory").toString());
 	if(Model && foldername.length() > 0)
 	{
-		settings.setValue("texturedirectory", QFileInfo(foldername).canonicalPath());
+		settings.setValue("texturedirectory", QFileInfo(foldername).canonicalPath() + "/.");
 		if(!Model->loadFromDirectory(foldername))
 		{
 			QMessageBox::critical(this, "I/O error", QString("Couldn't open \"%1\".").arg(foldername));
@@ -126,10 +135,14 @@ void PapaTextureEditor::openDirectory()
 
 void PapaTextureEditor::textureClicked(const QModelIndex& index)
 {
-	Label->setPixmap(QPixmap::fromImage(Model->image(index)));
-	Label->setMinimumSize(Model->image(index).size());
+	PapaFile *papa = Model->papa(index);
+	if(papa)
+	{
+		Label->setPixmap(QPixmap::fromImage(papa->image()));
+		Label->setFixedSize(papa->image().size());
 
-	InfoLabel->setText(Model->info(index));
+		InfoLabel->setText(Model->info(index));
+	}
 }
 
 void PapaTextureEditor::importImage()
@@ -155,8 +168,42 @@ void PapaTextureEditor::importImage()
 		if(Model->importImage(filename, TextureList->currentIndex()))
 			textureClicked(TextureList->currentIndex());
 		else
-			QMessageBox::critical(this, "Import failed", "I can't tell you why it failed, but this might be it:\n\tThe import image must be the same resolution at the current texture.\n\tThe texture format must be RGBA. I haven't finshed the others yet.\n\tThe papa file was read-only.");
+			QMessageBox::critical(this, "Import failed", "I won't tell you why it failed, but this might be it:\n\tThe import image must be the same resolution at the current texture.\n\tThe texture format must be RGBA. I haven't finshed the others yet.\n\tThe papa file was read-only.");
 	}
+}
+
+void PapaTextureEditor::exportImage()
+{
+	if(!TextureList->currentIndex().isValid())
+		return;
+
+	PapaFile *papa = Model->papa(TextureList->currentIndex());
+	if(!papa)
+		return;
+
+	QString filter;
+	QList<QByteArray> supportedImageFormats = QImageWriter::supportedImageFormats();
+	for(QList<QByteArray>::const_iterator format = supportedImageFormats.constBegin(); format != supportedImageFormats.constEnd(); ++format)
+	{
+		if(format != supportedImageFormats.constBegin())
+			filter += ";;";
+		filter += QString(*format).toLower() + " (*." + QString(*format).toLower() + ')';
+	}
+
+	QSettings settings("DeathByDenim", "papatextureeditor");
+	QString filename = QFileDialog::getSaveFileName(this, "Save image", settings.value("exportdirectory").toString(), filter);
+
+	if(filename.length() > 0)
+		qDebug() << filename;
+
+	settings.setValue("exportdirectory", QFileInfo(filename).canonicalPath());
+
+
+	QImageWriter writer(filename);
+	QByteArray format;
+	format.append(QFileInfo(filename).suffix());
+	writer.setFormat(format);
+	writer.write(papa->image());
 }
 
 #include "papatextureeditor.moc"

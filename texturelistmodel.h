@@ -21,7 +21,7 @@
 #define TEXTURELISTMODEL_H
 
 #include <QAbstractItemModel>
-#include <QImage>
+#include "papafile.h"
 
 class TextureListModel : public QAbstractListModel
 {
@@ -34,28 +34,15 @@ public:
 	virtual int rowCount(const QModelIndex & parent = QModelIndex()) const;
 	virtual QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const;
 
-	bool loadFromFile(const QString &name);
 	bool importImage(const QString& name, const QModelIndex& index);
     bool loadFromDirectory(const QString& foldername);
-	const QImage &image(const QModelIndex & index);
+	PapaFile *papa(const QModelIndex & index);
 	QString info(const QModelIndex& index);
 
 private:
-	struct ImageInFile_t
-	{
-		QString papaFileName;
-		qint64 textureOffset;
-		char textureFormat;
-		QString boneName;
-		QImage image;
-		char format;
-	};
-	QList<ImageInFile_t> Images;
+	QList<PapaFile *> Papas;
 
-	void decodeRGBAImage(QImage& image, qint64 width, qint64 height, QByteArray& imagedata);
-    void decodeDXT1Image(QImage& image, qint64 width, qint64 height, QByteArray& imagedata);
-    void decodeDXT5Image(QImage& image, short int Width, short int Height, QByteArray& imagedata);
-    bool saveImage(const QModelIndex& index);
+//    bool saveImage(const QModelIndex& index);
 };
 
 #endif // TEXTURELISTMODEL_H
