@@ -156,6 +156,9 @@ bool PapaFile::load(QString filename)
 				case texture_t::A8R8G8B8:
 					texture.Format = texture_t::A8R8G8B8;
 					break;
+				case texture_t::X8R8G8B8:
+					texture.Format = texture_t::X8R8G8B8;
+					break;
 				case texture_t::DXT1:
 					texture.Format = texture_t::DXT1;
 					break;
@@ -169,19 +172,46 @@ bool PapaFile::load(QString filename)
 			texture.Height = textureinformationheader.Height;
 			texture.Data = file.read(textureinformationheader.Length);
 			texture.NumberMinimaps = (int)textureinformationheader.NumberMinimaps;
+			texture.sRGB = (textureinformationheader.SRGB == 1);
 			if(texture.Data.length() != textureinformationheader.Length)
 			{
 				LastError = QString("Failed to read texture data for texture %1").arg(i);
 				return false;
 			}
 
-			if(texture.Format == texture_t::DXT1)
+			switch(texture.Format)
 			{
-				if(!decodeDXT1(texture))
-				{
-					LastError = QString("Failed to decode texture data for texture %1").arg(i);
+				case texture_t::A8R8G8B8:
+					if(!decodeA8R8G8B8(texture))
+					{
+						LastError = QString("Failed to decode A8R8G8B8 texture data for texture %1").arg(i);
+						return false;
+					}
+					break;
+				case texture_t::X8R8G8B8:
+					if(!decodeX8R8G8B8(texture))
+					{
+						LastError = QString("Failed to decode X8R8G8B8 texture data for texture %1").arg(i);
+						return false;
+					}
+					break;
+				case texture_t::DXT1:
+					if(!decodeDXT1(texture))
+					{
+						LastError = QString("Failed to decode DXT1 texture data for texture %1").arg(i);
+						return false;
+					}
+					break;
+				case texture_t::DXT5:
+					if(!decodeDXT5(texture))
+					{
+						LastError = QString("Failed to decode DXT5 texture data for texture %1").arg(i);
+						return false;
+					}
+					break;
+				default:
+					LastError = QString("Failed to decode unsupported texture data for texture %1").arg(i);
 					return false;
-				}
 			}
 
 			Textures.push_back(texture);
@@ -189,8 +219,18 @@ bool PapaFile::load(QString filename)
 	}
 
 	Valid = true;
-	
+
 	return true;
+}
+
+bool PapaFile::decodeA8R8G8B8(PapaFile::texture_t& texture)
+{
+	return false;
+}
+
+bool PapaFile::decodeX8R8G8B8(PapaFile::texture_t& texture)
+{
+	return false;
 }
 
 bool PapaFile::decodeDXT1(PapaFile::texture_t& texture)
@@ -204,13 +244,6 @@ bool PapaFile::decodeDXT1(PapaFile::texture_t& texture)
 			quint16 green : 6;
 			quint16 blue : 5;
 		} rgb;
-		struct
-		{
-			quint16 red : 5;
-			quint16 green : 5;
-			quint16 blue : 5;
-			quint16 alpha : 1;
-		} rgba;
 	};
 
 	struct row_t
@@ -230,7 +263,7 @@ bool PapaFile::decodeDXT1(PapaFile::texture_t& texture)
 
 	ptr = (const struct DXT1 *)(texture.Data.data());
 
-	for(int i = 0; i < texture.NumberMinimaps - 4; ++i) // remove the -4 later.
+	for(int i = 0; i < texture.NumberMinimaps - 4; ++i) // TODO remove the -4 later.
 	{
 		int divider = pow(2, i);
 		QImage image = QImage(texture.Width / divider, texture.Height / divider, QImage::Format_ARGB32);
@@ -271,6 +304,9 @@ bool PapaFile::decodeDXT1(PapaFile::texture_t& texture)
 				palette[3] = qRgb(0, 0, 0);
 			}
 
+			if(texture.sRGB)
+				convertFromSRGB(palette, 4);
+
 			int x = j % (texture.Width/(4*divider));
 			int y = j / (texture.Height/(4*divider));
 			for(int k = 0; k < 4; k++)
@@ -289,12 +325,58 @@ bool PapaFile::decodeDXT1(PapaFile::texture_t& texture)
 	return true;
 }
 
+bool PapaFile::decodeDXT5(PapaFile::texture_t& texture)
+{
+	union colour_t
+	{
+		quint16 value;
+		struct
+		{
+			quint16 red : 5;
+			quint16 green : 6;
+			quint16 blue : 5;
+		} rgb;
+	};
+
+	struct row_t
+	{
+		uchar col0 : 2;
+		uchar col1 : 2;
+		uchar col2 : 2;
+		uchar col3 : 2;
+	};
+
+	const struct DXT5
+	{
+		quint8 alpha0;
+		quint8 alpha1;
+		quint8 threebitdata[6];
+		colour_t colour0;
+		colour_t colour1;
+		row_t row[4];
+	} *ptr;
+
+	ptr = (const struct DXT5 *)(texture.Data.data());
+
+	for(int i = 0; i < texture.NumberMinimaps - 4; ++i) // TODO remove the -4 later.
+	{
+		int divider = pow(2, i);
+		QImage image = QImage(texture.Width / divider, texture.Height / divider, QImage::Format_ARGB32);
+		image.fill(0);
+	}
+
+
+	return false;
+}
+
 QString PapaFile::format()
 {
 	if(Textures.length() > 0)
 	{
 		switch(Textures[0].Format)
 		{
+			case texture_t::X8R8G8B8:
+				return "X8R8G8B8";
 			case texture_t::A8R8G8B8:
 				return "A8R8G8B8";
 			case texture_t::DXT1:
@@ -305,6 +387,37 @@ QString PapaFile::format()
 	}
 	
 	return "Unsupported";
+}
+
+void PapaFile::convertFromSRGB(QRgb* palette, int size)
+{
+	// From https://en.wikipedia.org/w/index.php?title=SRGB&oldid=586514424#The_reverse_transformation
+	for(int i = 0; i < size; i++)
+	{
+		float red = qRed(palette[i]) / 255.;
+		if(red <= 0.04045)
+			red /= 12.92;
+		else
+			red = pow((red + 0.055) / (1.055), 2.4);
+
+		float green = qGreen(palette[i]) / 255.;
+		if(green <= 0.04045)
+			green /= 12.92;
+		else
+			green = pow((green + 0.055) / (1.055), 2.4);
+
+		float blue = qBlue(palette[i]) / 255.;
+		if(blue <= 0.04045)
+			blue /= 12.92;
+		else
+			blue = pow((blue + 0.055) / (1.055), 2.4);
+
+		palette[i] = qRgb(
+			255*(0.4124*red + 0.3576*green + 0.1805*blue),
+			255*(0.2126*red + 0.7152*green + 0.0722*blue),
+			255*(0.0193*red + 0.1192*green + 0.9502*blue)
+		);
+	}
 }
 
 const QImage *PapaFile::image(int textureindex, int mipindex)
@@ -321,5 +434,6 @@ const QImage *PapaFile::image(int textureindex, int mipindex)
 	else
 		return NULL;
 }
+
 
 #include "papafile.moc"

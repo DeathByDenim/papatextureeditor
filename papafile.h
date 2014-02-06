@@ -139,12 +139,17 @@ private:
 		} Format;
 		qint16 Width, Height;
 		int NumberMinimaps;
+		bool sRGB;
 		QByteArray Data;
 		QList<QImage> Image;
 	};
 
 	void init();
+	bool decodeA8R8G8B8(PapaFile::texture_t& texture);
+	bool decodeX8R8G8B8(PapaFile::texture_t& texture);
 	bool decodeDXT1(PapaFile::texture_t& texture);
+	bool decodeDXT5(PapaFile::texture_t& texture);
+    void convertFromSRGB(QRgb* palette, int size);
 
 	bool Valid;
 	QString LastError;
