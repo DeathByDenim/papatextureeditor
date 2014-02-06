@@ -48,6 +48,7 @@ PapaTextureEditor::PapaTextureEditor()
 	horsplitter->addWidget(TextureList);
 	rightSideLayout->addWidget(scrollarea);
 	rightSideLayout->addWidget(InfoLabel);
+	
 	horsplitter->addWidget(rightSideWidget);
 
 
@@ -78,7 +79,7 @@ PapaTextureEditor::PapaTextureEditor()
 	menu->addAction(exportAction);
 //	menu->addAction(saveAction);
 	menu->addAction(quitAction);
-	
+
 	importAction->setEnabled(false);
 }
 
@@ -138,8 +139,17 @@ void PapaTextureEditor::textureClicked(const QModelIndex& index)
 	PapaFile *papa = Model->papa(index);
 	if(papa)
 	{
-		Label->setPixmap(QPixmap::fromImage(papa->image()));
-		Label->setFixedSize(papa->image().size());
+		const QImage *im = papa->image(0);
+		if(im)
+		{
+			Label->setPixmap(QPixmap::fromImage((*im)));
+			Label->setFixedSize((*im).size());
+		}
+		else
+		{
+			QPixmap p;
+			Label->setPixmap(p);
+		}
 
 		InfoLabel->setText(Model->info(index));
 	}
@@ -180,6 +190,10 @@ void PapaTextureEditor::exportImage()
 	PapaFile *papa = Model->papa(TextureList->currentIndex());
 	if(!papa)
 		return;
+	
+	const QImage *im = papa->image(0);
+	if(!im)
+		return;
 
 	QString filter;
 	QList<QByteArray> supportedImageFormats = QImageWriter::supportedImageFormats();
@@ -203,7 +217,7 @@ void PapaTextureEditor::exportImage()
 	QByteArray format;
 	format.append(QFileInfo(filename).suffix());
 	writer.setFormat(format);
-	writer.write(papa->image());
+	writer.write((*im));
 }
 
 #include "papatextureeditor.moc"

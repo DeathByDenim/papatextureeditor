@@ -101,7 +101,11 @@ QString TextureListModel::info(const QModelIndex& index)
 	{
 		QString info;
 		PapaFile *papa = Papas[index.row()];
-		info = QString("Size: %1 x %2, Format: %3").arg(papa->image().width()).arg(papa->image().height()).arg(papa->format());
+		const QImage *im = papa->image(0);
+		if(im)
+			info = QString("Size: %1 x %2, Format: %3").arg(im->width()).arg(im->height()).arg(papa->format());
+		else
+			info = QString("Size: ?????, Format: %3").arg(papa->format());
 
 		return info;
 	}

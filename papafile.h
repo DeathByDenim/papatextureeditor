@@ -37,7 +37,7 @@ public:
     bool isValid() {return Valid;}
     QString lastError() {return LastError;}
     QByteArray texture() {return Textures[0].Data;}
-    QImage image() {return Textures[0].Image[0];}
+    const QImage *image(int textureindex, int mipindex = 0);
     QString format();
 	QString name() {return Bones[0].name;}
 

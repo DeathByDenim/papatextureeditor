@@ -22,6 +22,7 @@
 
 #include <QDebug>
 #include <QImage>
+#include <qcolor.h>
 #include <cmath>
 
 PapaFile::PapaFile(const QString& filename)
@@ -202,16 +203,16 @@ bool PapaFile::decodeDXT1(PapaFile::texture_t& texture)
 			quint16 red : 5;
 			quint16 green : 6;
 			quint16 blue : 5;
-		} fourcompcolour;
+		} rgb;
 		struct
 		{
 			quint16 red : 5;
 			quint16 green : 5;
 			quint16 blue : 5;
 			quint16 alpha : 1;
-		} threecompcolour;
+		} rgba;
 	};
-	
+
 	struct row_t
 	{
 		uchar col0 : 2;
@@ -241,26 +242,33 @@ bool PapaFile::decodeDXT1(PapaFile::texture_t& texture)
 			QRgb palette[4];
 			if(ptr->colour0.value > ptr->colour1.value)
 			{	// Four colours
-				colour2.value = (2 * ptr->colour0.value + ptr->colour1.value) / 3;
-				colour3.value = (ptr->colour0.value + 2 * ptr->colour1.value) / 3;
+				
+				// Interpolate the other two colours.
+				colour2.rgb.red = (2 * ptr->colour0.rgb.red + ptr->colour1.rgb.red) / 3;
+				colour2.rgb.green = (2 * ptr->colour0.rgb.green + ptr->colour1.rgb.green) / 3;
+				colour2.rgb.blue = (2 * ptr->colour0.rgb.blue + ptr->colour1.rgb.blue) / 3;
+				colour3.rgb.red = (ptr->colour0.rgb.red + 2 * ptr->colour1.rgb.red) / 3;
+				colour3.rgb.green = (ptr->colour0.rgb.green + 2 * ptr->colour1.rgb.green) / 3;
+				colour3.rgb.blue = (ptr->colour0.rgb.blue + 2 * ptr->colour1.rgb.blue) / 3;
 
-				palette[0] = qRgb(255*ptr->colour0.fourcompcolour.red/32, 255*ptr->colour0.fourcompcolour.green/64, 255*ptr->colour0.fourcompcolour.blue/32);
-				palette[1] = qRgb(255*ptr->colour1.fourcompcolour.red/32, 255*ptr->colour1.fourcompcolour.green/64, 255*ptr->colour1.fourcompcolour.blue/32);
-				palette[2] = qRgb(255*colour2.fourcompcolour.red/32, 255*colour2.fourcompcolour.green/64, 255*colour2.fourcompcolour.blue/32);
-				palette[3] = qRgb(255*colour3.fourcompcolour.red/32, 255*colour3.fourcompcolour.green/64, 255*colour3.fourcompcolour.blue/32);
+				palette[0] = qRgb(255*ptr->colour0.rgb.red/32, 255*ptr->colour0.rgb.green/64, 255*ptr->colour0.rgb.blue/32);
+				palette[1] = qRgb(255*ptr->colour1.rgb.red/32, 255*ptr->colour1.rgb.green/64, 255*ptr->colour1.rgb.blue/32);
+				palette[2] = qRgb(255*colour2.rgb.red/32, 255*colour2.rgb.green/64, 255*colour2.rgb.blue/32);
+				palette[3] = qRgb(255*colour3.rgb.red/32, 255*colour3.rgb.green/64, 255*colour3.rgb.blue/32);
 			}
 			else
-			{	// Three colours with alpha
-				colour2.value = (ptr->colour0.value + ptr->colour1.value) / 2;  
+			{	// Three colours with black
+				
+				// The remaining colour is the average of the other two colours.
+				colour2.rgb.red = (ptr->colour0.rgb.red + ptr->colour1.rgb.red) / 2;  
+				colour2.rgb.green = (ptr->colour0.rgb.green + ptr->colour1.rgb.green) / 2;  
+				colour2.rgb.blue = (ptr->colour0.rgb.blue + ptr->colour1.rgb.blue) / 2;  
 				colour3.value = 0;
-				
-				palette[0] = qRgba(255*ptr->colour0.threecompcolour.red/32, 255*ptr->colour0.threecompcolour.green/32, 255*ptr->colour0.threecompcolour.blue/32, 255*ptr->colour0.threecompcolour.alpha);
-				palette[1] = qRgba(255*ptr->colour1.threecompcolour.red/32, 255*ptr->colour1.threecompcolour.green/32, 255*ptr->colour1.threecompcolour.blue/32, 255*ptr->colour1.threecompcolour.alpha);
-				palette[2] = qRgba(255*colour2.threecompcolour.red/32, 255*colour2.threecompcolour.green/32, 255*colour2.threecompcolour.blue/32, 255*colour2.threecompcolour.alpha);
-				palette[3] = qRgba(255*colour3.threecompcolour.red/32, 255*colour3.threecompcolour.green/32, 255*colour3.threecompcolour.blue/32, 255*colour3.threecompcolour.alpha);
-				
-				ptr++;
-				continue;
+
+				palette[0] = qRgb(255*ptr->colour0.rgb.red/32, 255*ptr->colour0.rgb.green/64, 255*ptr->colour0.rgb.blue/32);
+				palette[1] = qRgb(255*ptr->colour1.rgb.red/32, 255*ptr->colour1.rgb.green/64, 255*ptr->colour1.rgb.blue/32);
+				palette[2] = qRgb(255*colour2.rgb.red/32, 255*colour2.rgb.green/64, 255*colour2.rgb.blue/32);
+				palette[3] = qRgb(0, 0, 0);
 			}
 
 			int x = j % (texture.Width/(4*divider));
@@ -297,6 +305,21 @@ QString PapaFile::format()
 	}
 	
 	return "Unsupported";
+}
+
+const QImage *PapaFile::image(int textureindex, int mipindex)
+{
+	if(textureindex < Textures.count())
+	{
+		if(mipindex < Textures[textureindex].Image.count())
+		{
+			return &Textures[textureindex].Image[mipindex];
+		}
+		else
+			return NULL;
+	}
+	else
+		return NULL;
 }
 
 #include "papafile.moc"
