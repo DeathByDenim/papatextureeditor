@@ -225,7 +225,23 @@ bool PapaFile::load(QString filename)
 
 bool PapaFile::decodeA8R8G8B8(PapaFile::texture_t& texture)
 {
-	return false;
+	QImage image = QImage(texture.Width, texture.Height, QImage::Format_ARGB32);
+
+	qDebug() << "decodeA8R8G8B8: length =" << texture.Data.count();
+	qDebug() << "decodeA8R8G8B8: width  =" << texture.Width;
+	qDebug() << "decodeA8R8G8B8: height =" << texture.Height;
+
+	// Why is length not 4 * width * height? Weird.
+	qDebug() << "decodeA8R8G8B8: left over bytes??? =" << (texture.Data.count() - 4 * texture.Height * texture.Width);
+
+	for(int j = 0; j < 4 * texture.Width * texture.Height; j += 4)
+	{
+		int pixelindex = j / 4;
+		image.setPixel(pixelindex % texture.Width, texture.Height - 1 - (pixelindex / texture.Width), qRgba(texture.Data[j], texture.Data[j+1], texture.Data[j+2], texture.Data[j+3]));
+	}
+	texture.Image.push_back(image);
+
+	return true;
 }
 
 bool PapaFile::decodeX8R8G8B8(PapaFile::texture_t& texture)
