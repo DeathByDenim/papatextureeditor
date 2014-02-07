@@ -225,28 +225,46 @@ bool PapaFile::load(QString filename)
 
 bool PapaFile::decodeA8R8G8B8(PapaFile::texture_t& texture)
 {
-	QImage image = QImage(texture.Width, texture.Height, QImage::Format_ARGB32);
-
-	qDebug() << "decodeA8R8G8B8: length =" << texture.Data.count();
-	qDebug() << "decodeA8R8G8B8: width  =" << texture.Width;
-	qDebug() << "decodeA8R8G8B8: height =" << texture.Height;
-
-	// Why is length not 4 * width * height? Weird.
-	qDebug() << "decodeA8R8G8B8: left over bytes??? =" << (texture.Data.count() - 4 * texture.Height * texture.Width);
-
-	for(int j = 0; j < 4 * texture.Width * texture.Height; j += 4)
+	for(int m = 0; m < texture.NumberMinimaps; m++)
 	{
-		int pixelindex = j / 4;
-		image.setPixel(pixelindex % texture.Width, texture.Height - 1 - (pixelindex / texture.Width), qRgba(texture.Data[j], texture.Data[j+1], texture.Data[j+2], texture.Data[j+3]));
+		int divider = pow(2, m);
+		qint16 width = texture.Width / divider;
+		qint16 height = texture.Height / divider;
+		
+// TODO: Do something with the sRGB bit
+//		convertFromSRGB();
+
+		QImage image = QImage(width, height, QImage::Format_ARGB32);
+		for(int j = 0; j < 4 * width * height; j += 4)
+		{
+			int pixelindex = j / 4;
+			image.setPixel(pixelindex % width, /*height - 1 -*/ (pixelindex / width), qRgba(texture.Data[j], texture.Data[j+1], texture.Data[j+2], texture.Data[j+3]));
+		}
+		texture.Image.push_back(image);
 	}
-	texture.Image.push_back(image);
 
 	return true;
 }
 
 bool PapaFile::decodeX8R8G8B8(PapaFile::texture_t& texture)
 {
-	return false;
+	// Same as A8R8G8B8, but alpha remains unused.
+	for(int m = 0; m < texture.NumberMinimaps; m++)
+	{
+		int divider = pow(2, m);
+		qint16 width = texture.Width / divider;
+		qint16 height = texture.Height / divider;
+
+		QImage image = QImage(width, height, QImage::Format_ARGB32);
+		for(int j = 0; j < 4 * width * height; j += 4)
+		{
+			int pixelindex = j / 4;
+			image.setPixel(pixelindex % width, (pixelindex / width), qRgba(texture.Data[j], texture.Data[j+1], texture.Data[j+2], 255));
+		}
+		texture.Image.push_back(image);
+	}
+
+	return true;
 }
 
 bool PapaFile::decodeDXT1(PapaFile::texture_t& texture)
@@ -261,31 +279,37 @@ bool PapaFile::decodeDXT1(PapaFile::texture_t& texture)
 			quint16 blue : 5;
 		} rgb;
 	};
-
+	
 	struct row_t
 	{
-		uchar col0 : 2;
-		uchar col1 : 2;
-		uchar col2 : 2;
-		uchar col3 : 2;
+		quint8 col0 : 2;
+		quint8 col1 : 2;
+		quint8 col2 : 2;
+		quint8 col3 : 2;
 	};
 
 	const struct DXT1
 	{
 		colour_t colour0;
 		colour_t colour1;
-		row_t row[4];
+		union {
+			quint32 rgbbits;
+			row_t row[4];
+		} bits;
 	} *ptr;
 
 	ptr = (const struct DXT1 *)(texture.Data.data());
 
-	for(int i = 0; i < texture.NumberMinimaps - 4; ++i) // TODO remove the -4 later.
+	for(int m = 0; m < texture.NumberMinimaps; ++m)
 	{
-		int divider = pow(2, i);
-		QImage image = QImage(texture.Width / divider, texture.Height / divider, QImage::Format_ARGB32);
+		int divider = pow(2, m);
+		qint16 width = texture.Width / divider;
+		qint16 height = texture.Height / divider;
+
+		QImage image = QImage(width, height, QImage::Format_ARGB32);
 		image.fill(0);
 
-		for(int j = 0; j < texture.Width * texture.Height / (16 * divider * divider); j++)
+		for(int j = 0; j < (width * height + 15)/ 16; j++) // The +15 is to make sure it works for 2x2 and 1x1 minimaps
 		{
 			colour_t colour2, colour3;
 			QRgb palette[4];
@@ -323,14 +347,18 @@ bool PapaFile::decodeDXT1(PapaFile::texture_t& texture)
 			if(texture.sRGB)
 				convertFromSRGB(palette, 4);
 
-			int x = j % (texture.Width/(4*divider));
-			int y = j / (texture.Height/(4*divider));
-			for(int k = 0; k < 4; k++)
+			int x0 = j % ((width+3)/4);
+			int y0 = j / ((height+3)/4);
+
+			quint32 rgbbits = ptr->bits.rgbbits;
+			for(int y = 0; y < std::min(4, (int)height); ++y)
 			{
-				image.setPixel(4*x, 4*y + k, palette[ptr->row[k].col0]);
-				image.setPixel(4*x + 1, 4*y + k, palette[ptr->row[k].col1]);
-				image.setPixel(4*x + 2, 4*y + k, palette[ptr->row[k].col2]);
-				image.setPixel(4*x + 3, 4*y + k, palette[ptr->row[k].col3]);
+				for(int x = 0; x < std::min(4, (int)width); ++x)
+				{
+					quint8 colourindex = rgbbits & 0b11;
+					image.setPixel(4*x0 + x, 4*y0 + y, qRgb(qRed(palette[colourindex]), qGreen(palette[colourindex]), qBlue(palette[colourindex])));
+					rgbbits >>= 2;
+				}
 			}
 
 			ptr++;
@@ -440,7 +468,7 @@ bool PapaFile::decodeDXT5(PapaFile::texture_t& texture)
 				for(int x = 0; x < 4; ++x)
 				{
 					quint8 colourindex = rgbbits & 0b11;
-					image.setPixel(4*x0 + x, 4*y0 + y, qRgba(qRed(palette[colourindex]), qRed(palette[colourindex]), qRed(palette[colourindex]), alphatexel[x][y]));
+					image.setPixel(4*x0 + x, 4*y0 + y, qRgba(qRed(palette[colourindex]), qGreen(palette[colourindex]), qBlue(palette[colourindex]), alphatexel[x][y]));
 					rgbbits >>= 2;
 				}
 			}

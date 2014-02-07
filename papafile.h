@@ -28,18 +28,18 @@ class PapaFile : public QObject
     Q_OBJECT
 
 public:
-    PapaFile();
-    PapaFile(const QString &filename);
-    PapaFile(const PapaFile& other);
-    ~PapaFile();
-    PapaFile& operator=(const PapaFile& other);
-    bool load(QString filename);
-    bool isValid() {return Valid;}
-    QString lastError() {return LastError;}
-    QByteArray texture() {return Textures[0].Data;}
-    const QImage *image(int textureindex, int mipindex = 0);
-	   bool setImage(const QImage& image, int textureindex, int mipindex = 0);
-    QString format();
+	PapaFile();
+	PapaFile(const QString &filename);
+	PapaFile(const PapaFile& other);
+	~PapaFile();
+	PapaFile& operator=(const PapaFile& other);
+	bool load(QString filename);
+	bool isValid() {return Valid;}
+	QString lastError() {return LastError;}
+	QByteArray texture() {return Textures[0].Data;}
+	const QImage *image(int textureindex, int mipindex = 0);
+	bool setImage(const QImage& image, int textureindex, int mipindex = 0);
+	QString format();
 	QString name() {return Bones[0].name;}
 
 	qint16 NumberOfBones;
@@ -150,7 +150,7 @@ private:
 	bool decodeX8R8G8B8(PapaFile::texture_t& texture);
 	bool decodeDXT1(PapaFile::texture_t& texture);
 	bool decodeDXT5(PapaFile::texture_t& texture);
-    void convertFromSRGB(QRgb* palette, int size);
+	void convertFromSRGB(QRgb* palette, int size);
 
 	bool Valid;
 	QString LastError;
