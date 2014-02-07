@@ -18,6 +18,7 @@ private:
 	TextureListModel* Model;
     QTreeView* TextureList;
     QLabel* InfoLabel;
+    QAction* ImportAction;
 public:
     PapaTextureEditor();
     virtual ~PapaTextureEditor();

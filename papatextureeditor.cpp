@@ -59,9 +59,9 @@ PapaTextureEditor::PapaTextureEditor()
 /*	QAction* saveAction = new QAction(this);
 	saveAction->setText( "&Save" );
 	saveAction->setShortcut(QKeySequence("Ctrl+S"));
-*/	QAction* importAction = new QAction(this);
-	importAction->setText( "&Import..." );
-	importAction->setShortcut(QKeySequence("Ctrl+i"));
+*/	ImportAction = new QAction(this);
+	ImportAction->setText( "&Import..." );
+	ImportAction->setShortcut(QKeySequence("Ctrl+i"));
 	QAction* exportAction = new QAction(this);
 	exportAction->setText( "&Export..." );
 	exportAction->setShortcut(QKeySequence("Ctrl+e"));
@@ -70,17 +70,17 @@ PapaTextureEditor::PapaTextureEditor()
 	openAction->setShortcut(QKeySequence("Ctrl+O"));
 	connect(quitAction, SIGNAL(triggered()), SLOT(close()) );
 //	connect(saveAction, SIGNAL(triggered()), SLOT(saveImage()) );
-	connect(importAction, SIGNAL(triggered()), SLOT(importImage()));
+	connect(ImportAction, SIGNAL(triggered()), SLOT(importImage()));
 	connect(exportAction, SIGNAL(triggered()), SLOT(exportImage()));
 	connect(openAction, SIGNAL(triggered()), SLOT(openDirectory()));
 	QMenu *menu = menuBar()->addMenu("&File");
 	menu->addAction(openAction);
-	menu->addAction(importAction);
+	menu->addAction(ImportAction);
 	menu->addAction(exportAction);
 //	menu->addAction(saveAction);
 	menu->addAction(quitAction);
 
-	importAction->setEnabled(false);
+	ImportAction->setEnabled(false);
 }
 
 PapaTextureEditor::~PapaTextureEditor()
@@ -152,7 +152,11 @@ void PapaTextureEditor::textureClicked(const QModelIndex& index)
 		}
 
 		InfoLabel->setText(Model->info(index));
+		
+		ImportAction->setEnabled(Model->info(index).contains("A8R8G8B8"));
 	}
+	else
+		ImportAction->setEnabled(false);
 }
 
 void PapaTextureEditor::importImage()

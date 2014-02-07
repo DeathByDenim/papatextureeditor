@@ -38,6 +38,7 @@ public:
     QString lastError() {return LastError;}
     QByteArray texture() {return Textures[0].Data;}
     const QImage *image(int textureindex, int mipindex = 0);
+	   bool setImage(const QImage& image, int textureindex, int mipindex = 0);
     QString format();
 	QString name() {return Bones[0].name;}
 

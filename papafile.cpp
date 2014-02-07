@@ -366,23 +366,91 @@ bool PapaFile::decodeDXT5(PapaFile::texture_t& texture)
 	{
 		quint8 alpha0;
 		quint8 alpha1;
-		quint8 threebitdata[6];
+		quint64 alphabits : 48;
 		colour_t colour0;
 		colour_t colour1;
-		row_t row[4];
+		quint32 rgbbits;
 	} *ptr;
+
+	qDebug() << "sizeof(DXT5)" << sizeof(DXT5);
 
 	ptr = (const struct DXT5 *)(texture.Data.data());
 
-	for(int i = 0; i < texture.NumberMinimaps - 4; ++i) // TODO remove the -4 later.
+	for(int i = 0; i < 1/*texture.NumberMinimaps - 4*/; i++) // TODO remove the -4 later.
 	{
 		int divider = pow(2, i);
 		QImage image = QImage(texture.Width / divider, texture.Height / divider, QImage::Format_ARGB32);
-		image.fill(0);
+		image.fill(qRgb(255, 0, 0));
+
+		for(int j = 0; j < texture.Width * texture.Height / (16 * divider * divider); j++)
+		{
+			// Calculate the eigth alpha values in use.
+			quint8 alphapalette[8];
+			alphapalette[0] = ptr->alpha0;
+			alphapalette[1] = ptr->alpha1;
+			if(ptr->alpha0 > ptr->alpha1)
+			{
+				for(int k = 0; k < 6; k++)
+					alphapalette[k+2] = ((6. - k) * ptr->alpha0 + (k + 1.) * ptr->alpha1) / 7.;
+			}
+			else
+			{
+				for(int k = 0; k < 4; k++)
+					alphapalette[k+2] = ((4. - k) * ptr->alpha0 + (k + 1.) * ptr->alpha1) / 5.;
+				alphapalette[6] = 0;
+				alphapalette[7] = 255;
+			}
+
+			for(int k = 0; k < 8; k++)
+				alphapalette[k] = 255;
+
+			// Get the alpha value for each pixel.
+			quint8 alphatexel[4][4];
+			quint64 alphabits = ptr->alphabits;// (quint64)ptr->alphabits[0] + 256 * ((quint64)ptr->alphabits[1] + 256 * ((quint64)ptr->alphabits[2] + 256 * ((quint64)ptr->alphabits[3] + 256 * ((quint64)ptr->alphabits[4] + 256 * (quint64)ptr->alphabits[5]))));
+			for(int y = 0; y < 4; ++y)
+			{
+				for(int x = 0; x < 4; ++x)
+				{
+					alphatexel[x][y] = alphapalette[alphabits & 0b111];
+					alphabits >>= 3;
+				}
+			}
+
+			QRgb palette[4];
+			colour_t colour2, colour3;
+			colour2.rgb.red = (2 * ptr->colour0.rgb.red + ptr->colour1.rgb.red) / 3;
+			colour2.rgb.green = (2 * ptr->colour0.rgb.green + ptr->colour1.rgb.green) / 3;
+			colour2.rgb.blue = (2 * ptr->colour0.rgb.blue + ptr->colour1.rgb.blue) / 3;
+			colour3.rgb.red = (ptr->colour0.rgb.red + 2 * ptr->colour1.rgb.red) / 3;
+			colour3.rgb.green = (ptr->colour0.rgb.green + 2 * ptr->colour1.rgb.green) / 3;
+			colour3.rgb.blue = (ptr->colour0.rgb.blue + 2 * ptr->colour1.rgb.blue) / 3;
+
+			palette[0] = qRgb(255*ptr->colour0.rgb.red/32, 255*ptr->colour0.rgb.green/64, 255*ptr->colour0.rgb.blue/32);
+			palette[1] = qRgb(255*ptr->colour1.rgb.red/32, 255*ptr->colour1.rgb.green/64, 255*ptr->colour1.rgb.blue/32);
+			palette[2] = qRgb(255*colour2.rgb.red/32, 255*colour2.rgb.green/64, 255*colour2.rgb.blue/32);
+			palette[3] = qRgb(255*colour3.rgb.red/32, 255*colour3.rgb.green/64, 255*colour3.rgb.blue/32);
+
+
+			int x0 = j % (texture.Width/(4*divider));
+			int y0 = j / (texture.Height/(4*divider));
+
+			quint32 rgbbits = ptr->rgbbits;
+			for(int y = 0; y < 4; ++y)
+			{
+				for(int x = 0; x < 4; ++x)
+				{
+					quint8 colourindex = rgbbits & 0b11;
+					image.setPixel(4*x0 + x, 4*y0 + y, qRgba(qRed(palette[colourindex]), qRed(palette[colourindex]), qRed(palette[colourindex]), alphatexel[x][y]));
+					rgbbits >>= 2;
+				}
+			}
+
+			ptr++;
+		}
+		texture.Image.push_back(image);
 	}
 
-
-	return false;
+	return true;
 }
 
 QString PapaFile::format()
@@ -449,6 +517,22 @@ const QImage *PapaFile::image(int textureindex, int mipindex)
 	}
 	else
 		return NULL;
+}
+
+bool PapaFile::setImage(const QImage& image, int textureindex, int mipindex)
+{
+	if(textureindex < Textures.count())
+	{
+		if(mipindex < Textures[textureindex].Image.count())
+		{
+			Textures[textureindex].Image[mipindex] = image;
+			return true;
+		}
+		else
+			return false;
+	}
+	else
+		return false;
 }
 
 
