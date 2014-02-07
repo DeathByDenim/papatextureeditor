@@ -292,10 +292,7 @@ bool PapaFile::decodeDXT1(PapaFile::texture_t& texture)
 	{
 		colour_t colour0;
 		colour_t colour1;
-		union {
-			quint32 rgbbits;
-			row_t row[4];
-		} bits;
+		quint32 rgbbits;
 	} *ptr;
 
 	ptr = (const struct DXT1 *)(texture.Data.data());
@@ -350,7 +347,7 @@ bool PapaFile::decodeDXT1(PapaFile::texture_t& texture)
 			int x0 = j % ((width+3)/4);
 			int y0 = j / ((height+3)/4);
 
-			quint32 rgbbits = ptr->bits.rgbbits;
+			quint32 rgbbits = ptr->rgbbits;
 			for(int y = 0; y < std::min(4, (int)height); ++y)
 			{
 				for(int x = 0; x < std::min(4, (int)width); ++x)
@@ -400,8 +397,6 @@ bool PapaFile::decodeDXT5(PapaFile::texture_t& texture)
 		quint32 rgbbits;
 	} *ptr;
 
-	qDebug() << "sizeof(DXT5)" << sizeof(DXT5);
-
 	ptr = (const struct DXT5 *)(texture.Data.data());
 
 	for(int i = 0; i < 1/*texture.NumberMinimaps - 4*/; i++) // TODO remove the -4 later.
@@ -429,9 +424,6 @@ bool PapaFile::decodeDXT5(PapaFile::texture_t& texture)
 				alphapalette[7] = 255;
 			}
 
-			for(int k = 0; k < 8; k++)
-				alphapalette[k] = 255;
-
 			// Get the alpha value for each pixel.
 			quint8 alphatexel[4][4];
 			quint64 alphabits = ptr->alphabits;// (quint64)ptr->alphabits[0] + 256 * ((quint64)ptr->alphabits[1] + 256 * ((quint64)ptr->alphabits[2] + 256 * ((quint64)ptr->alphabits[3] + 256 * ((quint64)ptr->alphabits[4] + 256 * (quint64)ptr->alphabits[5]))));
@@ -458,6 +450,8 @@ bool PapaFile::decodeDXT5(PapaFile::texture_t& texture)
 			palette[2] = qRgb(255*colour2.rgb.red/32, 255*colour2.rgb.green/64, 255*colour2.rgb.blue/32);
 			palette[3] = qRgb(255*colour3.rgb.red/32, 255*colour3.rgb.green/64, 255*colour3.rgb.blue/32);
 
+			if(texture.sRGB)
+				convertFromSRGB(palette, 4);
 
 			int x0 = j % (texture.Width/(4*divider));
 			int y0 = j / (texture.Height/(4*divider));
