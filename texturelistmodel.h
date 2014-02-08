@@ -36,11 +36,14 @@ public:
 
 	bool importImage(const QString& name, const QModelIndex& index);
     bool loadFromDirectory(const QString& foldername);
-	PapaFile *papa(const QModelIndex & index);
+	PapaFile *papa(const QModelIndex& index);
 	QString info(const QModelIndex& index);
+	bool savePapa(const QModelIndex& index, const QString& filename = "");
+	QString lastError() {return LastError;}
 
 private:
 	QList<PapaFile *> Papas;
+    QString LastError;
 
 //    bool saveImage(const QModelIndex& index);
 };

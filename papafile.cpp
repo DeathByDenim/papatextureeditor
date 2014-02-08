@@ -38,6 +38,7 @@ PapaFile::PapaFile()
 
 PapaFile::PapaFile(const PapaFile& other)
 {
+	// TODO: Implement this.
 }
 
 PapaFile::~PapaFile()
@@ -46,24 +47,20 @@ PapaFile::~PapaFile()
 
 PapaFile& PapaFile::operator=(const PapaFile& other)
 {
+	// TODO: Implement this.
 }
 
 void PapaFile::init()
 {
 	Valid = false;
+	Modified = false;
 	LastError = "";
-	NumberOfBones = 0;
-	NumberOfTextures = 0;
-	NumberOfVertexBuffers = 0;
-	NumberOfIndexBuffers = 0;
-	NumberOfMaterials = 0;
-	NumberOfMeshes = 0;
-	NumberOfSkeletons = 0;
-	NumberOfModels = 0;
 }
 
 bool PapaFile::load(QString filename)
 {
+	Filename = filename;
+
 	QFile file(filename);
 	if(!file.open(QIODevice::ReadOnly))
 	{
@@ -84,15 +81,21 @@ bool PapaFile::load(QString filename)
 		return false;
 	}
 
-	NumberOfBones = papaheader.NumberOfBones;
-	NumberOfTextures = papaheader.NumberOfTextures;
-	NumberOfVertexBuffers = papaheader.NumberOfVertexBuffers;
-	NumberOfIndexBuffers = papaheader.NumberOfIndexBuffers;
-	NumberOfMaterials = papaheader.NumberOfMaterials;
-	NumberOfMeshes = papaheader.NumberOfMeshes;
-	NumberOfSkeletons = papaheader.NumberOfSkeletons;
-	NumberOfModels = papaheader.NumberOfModels;
+	qint16 numberOfBones = papaheader.NumberOfBones;
+	qint16 numberOfTextures = papaheader.NumberOfTextures;
+	qint16 numberOfVertexBuffers = papaheader.NumberOfVertexBuffers;
+	qint16 numberOfIndexBuffers = papaheader.NumberOfIndexBuffers;
+	qint16 numberOfMaterials = papaheader.NumberOfMaterials;
+	qint16 numberOfMeshes = papaheader.NumberOfMeshes;
+	qint16 numberOfSkeletons = papaheader.NumberOfSkeletons;
+	qint16 numberOfModels = papaheader.NumberOfModels;
 
+	HeaderUnknowns.Unknown1[0] = papaheader.Unknown1[0];
+	HeaderUnknowns.Unknown1[1] = papaheader.Unknown1[1];
+	HeaderUnknowns.Unknown2[0] = papaheader.Unknown2[0];
+	HeaderUnknowns.Unknown2[1] = papaheader.Unknown2[1];
+	HeaderUnknowns.Unknown2[2] = papaheader.Unknown2[2];
+	HeaderUnknowns.Unknown2[3] = papaheader.Unknown2[3];
 
 	// Read the bones
 	if(papaheader.OffsetBonesHeader >= 0)
@@ -102,7 +105,7 @@ bool PapaFile::load(QString filename)
 			LastError = "Failed to seek to BonesHeader";
 			return false;
 		}
-		for(qint64 i = 0; i < NumberOfBones; i++)
+		for(qint64 i = 0; i < numberOfBones; i++)
 		{
 			BonesHeader boneheader;
 			if(file.read((char *)&boneheader, sizeof(BonesHeader)) != sizeof(BonesHeader))
@@ -141,7 +144,7 @@ bool PapaFile::load(QString filename)
 			LastError = "Failed to seek to TextureInformation";
 			return false;
 		}
-		for(qint64 i = 0; i < NumberOfTextures; i++)
+		for(qint64 i = 0; i < numberOfTextures; i++)
 		{
 			TextureInformationHeader textureinformationheader;
 			if(file.read((char *)&textureinformationheader, sizeof(TextureInformationHeader)) != sizeof(TextureInformationHeader))
@@ -178,6 +181,10 @@ bool PapaFile::load(QString filename)
 				LastError = QString("Failed to read texture data for texture %1").arg(i);
 				return false;
 			}
+			texture.Unknowns.Unknown1[0] = textureinformationheader.Unknown1[0];
+			texture.Unknowns.Unknown1[1] = textureinformationheader.Unknown1[1];
+			texture.Unknowns.Unknown2 = textureinformationheader.Unknown2;
+			texture.Unknowns.Unknown3 = textureinformationheader.Unknown3;
 
 			switch(texture.Format)
 			{
@@ -219,12 +226,138 @@ bool PapaFile::load(QString filename)
 	}
 
 	Valid = true;
+	LastError = "";
 
 	return true;
 }
 
+bool PapaFile::save(QString filename)
+{
+	if(filename == "")
+		filename = Filename;
+
+	if(!Modified && filename == Filename)
+		return true;
+
+	QFile papafile(filename);
+	if(!papafile.open(QIODevice::ReadWrite))
+	{
+		LastError = QString("Failed to open %1").arg(filename);
+		return false;
+	}
+
+	Header papaheader;
+	papaheader.Identification[0] = 'a';
+	papaheader.Identification[1] = 'p';
+	papaheader.Identification[2] = 'a';
+	papaheader.Identification[3] = 'P';
+
+	papaheader.Unknown1[0] = HeaderUnknowns.Unknown1[0];
+	papaheader.Unknown1[1] = HeaderUnknowns.Unknown1[1];
+
+	papaheader.NumberOfBones = Bones.count();
+	papaheader.NumberOfTextures = Textures.count();
+	papaheader.NumberOfVertexBuffers = 0;
+	papaheader.NumberOfIndexBuffers = 0;
+	papaheader.NumberOfMaterials = 0;
+	papaheader.NumberOfMeshes = 0;
+	papaheader.NumberOfSkeletons = 0;
+	papaheader.NumberOfModels = 0;
+
+	papaheader.Unknown2[0] = HeaderUnknowns.Unknown2[0];
+	papaheader.Unknown2[1] = HeaderUnknowns.Unknown2[1];
+	papaheader.Unknown2[2] = HeaderUnknowns.Unknown2[2];
+	papaheader.Unknown2[3] = HeaderUnknowns.Unknown2[3];
+
+	papaheader.OffsetBonesHeader = -1;
+	papaheader.OffsetTextureInformation = sizeof(Header);
+	papaheader.OffsetVerticesInformation = -1;
+	papaheader.OffsetIndicesInformation = -1;
+	papaheader.OffsetMaterialInformation = -1;
+	papaheader.OffsetMeshInformation = -1;
+	papaheader.OffsetSkeletonInformation = -1;
+	papaheader.OffsetModelInformation = -1;
+	papaheader.OffsetAnimationInformation = -1;
+
+	if(papafile.write((const char *)&papaheader, sizeof(Header)) != sizeof(Header))
+	{
+		LastError = "Failed to write header.";
+		return false;
+	}
+
+	for(QList<texture_t>::const_iterator tex = Textures.constBegin(); tex != Textures.constEnd(); ++tex)
+	{
+		TextureInformationHeader textureinformationheader;
+		textureinformationheader.Unknown1[0] = tex->Unknowns.Unknown1[0];
+		textureinformationheader.Unknown1[1] = tex->Unknowns.Unknown1[1];
+		textureinformationheader.TextureFormat = tex->Format;
+		textureinformationheader.NumberMinimaps = tex->NumberMinimaps;
+		textureinformationheader.Unknown2 = tex->Unknowns.Unknown2;
+		textureinformationheader.SRGB = (tex->sRGB ? 1 : 0);
+		textureinformationheader.Width = tex->Width;
+		textureinformationheader.Height = tex->Height;
+		textureinformationheader.Length = tex->Data.length();
+		textureinformationheader.Unknown3 = tex->Unknowns.Unknown3;
+
+		if(papafile.write((const char*)&textureinformationheader, sizeof(TextureInformationHeader)) != sizeof(TextureInformationHeader))
+		{
+			LastError = "Failed to write texture information header for texture.";
+			return false;
+		}
+		if(papafile.write(tex->Data) != tex->Data.length())
+		{
+			LastError = "Failed to write data for texture.";
+			return false;
+		}
+	}
+
+	papaheader.OffsetBonesHeader = papafile.pos();
+	
+	quint64 bonestringpos = papafile.pos() + Bones.count() * sizeof(BonesHeader);
+	for(QList<bone_t>::const_iterator bone = Bones.constBegin(); bone != Bones.constEnd(); ++bone)
+	{
+		BonesHeader boneheader;
+		boneheader.LengthOfBoneName = bone->name.length();
+		boneheader.OffsetBoneName = bonestringpos;
+		bonestringpos += boneheader.LengthOfBoneName;
+		
+		if(papafile.write((const char *)&boneheader, sizeof(BonesHeader)) != sizeof(BonesHeader))
+		{
+			LastError = "Failed to write bone header for bone.";
+			return false;
+		}
+	}
+
+	for(QList<bone_t>::const_iterator bone = Bones.constBegin(); bone != Bones.constEnd(); ++bone)
+	{
+		if(papafile.write(bone->name.toAscii()) != bone->name.length())
+		{
+			LastError = "Failed to write name for bone.";
+			return false;
+		}
+	}	
+
+	if(!papafile.seek(0))
+	{
+		LastError = "Failed to seek to beginning.";
+		return false;
+	}
+	if(papafile.write((const char *)&papaheader, sizeof(Header)) != sizeof(Header))
+	{
+		LastError = "Failed to rewrite header.";
+		return false;
+	}
+
+	Filename = filename;
+	LastError = "";
+
+	return true;
+}
+
+
 bool PapaFile::decodeA8R8G8B8(PapaFile::texture_t& texture)
 {
+	int j = 0;
 	for(int m = 0; m < texture.NumberMinimaps; m++)
 	{
 		int divider = pow(2, m);
@@ -235,7 +368,7 @@ bool PapaFile::decodeA8R8G8B8(PapaFile::texture_t& texture)
 //		convertFromSRGB();
 
 		QImage image = QImage(width, height, QImage::Format_ARGB32);
-		for(int j = 0; j < 4 * width * height; j += 4)
+		for(; j < 4 * width * height; j += 4)
 		{
 			int pixelindex = j / 4;
 			image.setPixel(pixelindex % width, /*height - 1 -*/ (pixelindex / width), qRgba(texture.Data[j], texture.Data[j+1], texture.Data[j+2], texture.Data[j+3]));
@@ -246,9 +379,42 @@ bool PapaFile::decodeA8R8G8B8(PapaFile::texture_t& texture)
 	return true;
 }
 
+bool PapaFile::encodeA8R8G8B8(PapaFile::texture_t& texture)
+{
+	int j = 0;
+
+	for(int m = 0; m < texture.NumberMinimaps; m++)
+	{
+		int divider = pow(2, m);
+		qint16 width = texture.Width / divider;
+		qint16 height = texture.Height / divider;
+		
+// TODO: Do something with the sRGB bit
+//		convertFromSRGB();
+
+		QImage image = QImage(width, height, QImage::Format_ARGB32);
+		for(; j < 4 * width * height; j += 4)
+		{
+			int pixelindex = j / 4;
+			QRgb colour = image.pixel(pixelindex % width, pixelindex / width);
+			texture.Data[j] = qRed(colour);
+			texture.Data[j+1] = qGreen(colour);
+			texture.Data[j+2] = qBlue(colour);
+			texture.Data[j+3] = qAlpha(colour);
+		}
+		texture.Image.push_back(image);
+	}
+
+	return true;
+}
+
+
 bool PapaFile::decodeX8R8G8B8(PapaFile::texture_t& texture)
 {
 	// Same as A8R8G8B8, but alpha remains unused.
+	
+	int j = 0;
+	
 	for(int m = 0; m < texture.NumberMinimaps; m++)
 	{
 		int divider = pow(2, m);
@@ -256,7 +422,7 @@ bool PapaFile::decodeX8R8G8B8(PapaFile::texture_t& texture)
 		qint16 height = texture.Height / divider;
 
 		QImage image = QImage(width, height, QImage::Format_ARGB32);
-		for(int j = 0; j < 4 * width * height; j += 4)
+		for(; j < 4 * width * height; j += 4)
 		{
 			int pixelindex = j / 4;
 			image.setPixel(pixelindex % width, (pixelindex / width), qRgba(texture.Data[j], texture.Data[j+1], texture.Data[j+2], 255));
@@ -266,6 +432,33 @@ bool PapaFile::decodeX8R8G8B8(PapaFile::texture_t& texture)
 
 	return true;
 }
+
+bool PapaFile::encodeX8R8G8B8(PapaFile::texture_t& texture)
+{
+	int j = 0;
+
+	for(int m = 0; m < texture.NumberMinimaps; m++)
+	{
+		int divider = pow(2, m);
+		qint16 width = texture.Width / divider;
+		qint16 height = texture.Height / divider;
+
+		QImage image = QImage(width, height, QImage::Format_ARGB32);
+		for(; j < 4 * width * height; j += 4)
+		{
+			int pixelindex = j / 4;
+			QRgb colour = image.pixel(pixelindex % width, pixelindex / width);
+			texture.Data[j] = qRed(colour);
+			texture.Data[j+1] = qGreen(colour);
+			texture.Data[j+2] = qBlue(colour);
+//			texture.Data[j+3] = <NOT USED>;
+		}
+		texture.Image.push_back(image);
+	}
+
+	return true;
+}
+
 
 bool PapaFile::decodeDXT1(PapaFile::texture_t& texture)
 {
@@ -366,6 +559,12 @@ bool PapaFile::decodeDXT1(PapaFile::texture_t& texture)
 	return true;
 }
 
+bool PapaFile::encodeDXT1(PapaFile::texture_t& texture)
+{
+	return false;
+}
+
+
 bool PapaFile::decodeDXT5(PapaFile::texture_t& texture)
 {
 	union colour_t
@@ -377,14 +576,6 @@ bool PapaFile::decodeDXT5(PapaFile::texture_t& texture)
 			quint16 green : 6;
 			quint16 blue : 5;
 		} rgb;
-	};
-
-	struct row_t
-	{
-		uchar col0 : 2;
-		uchar col1 : 2;
-		uchar col2 : 2;
-		uchar col3 : 2;
 	};
 
 	const struct DXT5
@@ -399,10 +590,13 @@ bool PapaFile::decodeDXT5(PapaFile::texture_t& texture)
 
 	ptr = (const struct DXT5 *)(texture.Data.data());
 
-	for(int i = 0; i < 1/*texture.NumberMinimaps - 4*/; i++) // TODO remove the -4 later.
+	for(int i = 0; i < texture.NumberMinimaps; i++)
 	{
 		int divider = pow(2, i);
-		QImage image = QImage(texture.Width / divider, texture.Height / divider, QImage::Format_ARGB32);
+		qint16 width = texture.Width / divider;
+		qint16 height = texture.Height / divider;
+
+		QImage image = QImage(width, height, QImage::Format_ARGB32);
 		image.fill(qRgb(255, 0, 0));
 
 		for(int j = 0; j < texture.Width * texture.Height / (16 * divider * divider); j++)
@@ -426,7 +620,7 @@ bool PapaFile::decodeDXT5(PapaFile::texture_t& texture)
 
 			// Get the alpha value for each pixel.
 			quint8 alphatexel[4][4];
-			quint64 alphabits = ptr->alphabits;// (quint64)ptr->alphabits[0] + 256 * ((quint64)ptr->alphabits[1] + 256 * ((quint64)ptr->alphabits[2] + 256 * ((quint64)ptr->alphabits[3] + 256 * ((quint64)ptr->alphabits[4] + 256 * (quint64)ptr->alphabits[5]))));
+			quint64 alphabits = ptr->alphabits;
 			for(int y = 0; y < 4; ++y)
 			{
 				for(int x = 0; x < 4; ++x)
@@ -474,6 +668,12 @@ bool PapaFile::decodeDXT5(PapaFile::texture_t& texture)
 
 	return true;
 }
+
+bool PapaFile::encodeDXT5(PapaFile::texture_t& texture)
+{
+	return false;
+}
+
 
 QString PapaFile::format()
 {
@@ -541,21 +741,31 @@ const QImage *PapaFile::image(int textureindex, int mipindex)
 		return NULL;
 }
 
-bool PapaFile::setImage(const QImage& image, int textureindex, int mipindex)
+bool PapaFile::importImage(const QImage &newimage, const int textureindex)
 {
 	if(textureindex < Textures.count())
 	{
-		if(mipindex < Textures[textureindex].Image.count())
-		{
-			Textures[textureindex].Image[mipindex] = image;
-			return true;
-		}
-		else
+		if(Textures[textureindex].Image.count() == 0)
 			return false;
+
+		if(newimage.size() != Textures[textureindex].Image[0].size())
+			return false;
+
+		Textures[textureindex].Image[0] = newimage.copy();
+		for(int m = 1; m < Textures[textureindex].NumberMinimaps; m++)
+		{
+			int divider = pow(2, m);
+			qint16 width = Textures[textureindex].Width / divider;
+			qint16 height = Textures[textureindex].Height / divider;
+
+			Textures[textureindex].Image[m] = newimage.scaled(width, height);
+		}
 	}
 	else
 		return false;
-}
 
+	Modified = true;
+	return true;
+}
 
 #include "papafile.moc"

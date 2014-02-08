@@ -27,9 +27,10 @@ public slots:
 	void openDirectory();
 	void importImage();
 	void exportImage();
-    void saveImage();
-    void putMeInIt();
+    void savePapa();
+    void saveAsPapa();
 	void textureClicked(const QModelIndex& index);
+	void about();
 };
 
 #endif // papatextureeditor_H

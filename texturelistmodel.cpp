@@ -24,9 +24,10 @@
 #include <QDebug>
 #include <QDir>
 #include <QImageReader>
+#include <QBrush>
 
 TextureListModel::TextureListModel(QObject* parent)
- : QAbstractListModel(parent)
+ : QAbstractListModel(parent), LastError("")
 {
 }
 
@@ -40,6 +41,11 @@ QVariant TextureListModel::data(const QModelIndex& index, int role) const
 	{
 		case Qt::DisplayRole:
 			return QVariant(Papas.at(index.row())->name());
+		case Qt::ForegroundRole:
+			if(Papas.at(index.row())->isModified())
+				return QBrush(Qt::red);
+			else
+				return QVariant();
 		default:
 			return QVariant();
 	}
@@ -74,7 +80,7 @@ bool TextureListModel::loadFromDirectory(const QString& foldername)
 	{
 		qDebug() << *papafile;
 		PapaFile *papa = new PapaFile(foldername + '/' + *papafile);
-		if(papa->isValid() && papa->NumberOfTextures == 1)
+		if(papa->isValid() && papa->textureCount() == 1)
 			Papas.push_back(papa);
 		else
 			delete papa;
@@ -115,20 +121,19 @@ QString TextureListModel::info(const QModelIndex& index)
 
 bool TextureListModel::importImage(const QString& name, const QModelIndex& index)
 {
-	if(!index.isValid())
+	if(!index.isValid() || !Papas[index.row()]->image(0))
 		return false;
 
 	QImageReader *reader = new QImageReader(name);
 	QImage newimage = reader->read();
 	delete reader;
-/*
-	if(Textures[index.row()]->image().size() == newimage.size() && Textures[index.row()].format() == "A8R8G8B8")
+
+	if(Papas[index.row()]->size(0) == newimage.size() && Papas[index.row()]->format() == "A8R8G8B8")
 	{
-		Images[index.row()].image = newimage;
-		return saveImage(index);
+		return Papas[index.row()]->importImage(newimage, 0);
 	}
 	else
-*/		return false;
+		return false;
 }
 /*
 bool TextureListModel::saveImage(const QModelIndex &index)
@@ -156,5 +161,26 @@ bool TextureListModel::saveImage(const QModelIndex &index)
 	papafile.write(data);
 }
 */
+
+bool TextureListModel::savePapa(const QModelIndex& index, const QString& filename)
+{
+	if(!index.isValid())
+		return false;
+
+	if(index.row() < Papas.count())
+	{
+		if(!Papas[index.row()]->save(filename))
+		{
+			LastError = Papas[index.row()]->lastError();
+			return false;
+		}
+	}
+	else
+		return false;
+
+	LastError = "";
+	return true;
+}
+
 
 #include "texturelistmodel.moc"

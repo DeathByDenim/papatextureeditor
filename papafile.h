@@ -34,22 +34,17 @@ public:
 	~PapaFile();
 	PapaFile& operator=(const PapaFile& other);
 	bool load(QString filename);
+	bool save(QString filename = "");
 	bool isValid() {return Valid;}
 	QString lastError() {return LastError;}
 	QByteArray texture() {return Textures[0].Data;}
+	int textureCount() {return Textures.count(); }
 	const QImage *image(int textureindex, int mipindex = 0);
-	bool setImage(const QImage& image, int textureindex, int mipindex = 0);
 	QString format();
+	QSize size(int textureindex) {if(textureindex < Textures.count()) return QSize(Textures[textureindex].Width, Textures[textureindex].Height); else return QSize();}
 	QString name() {return Bones[0].name;}
-
-	qint16 NumberOfBones;
-	qint16 NumberOfTextures;
-	qint16 NumberOfVertexBuffers;
-	qint16 NumberOfIndexBuffers;
-	qint16 NumberOfMaterials;
-	qint16 NumberOfMeshes;
-	qint16 NumberOfSkeletons;
-	qint16 NumberOfModels;
+	bool importImage(const QImage& newimage, const int textureindex);
+	bool isModified() {return Modified;}
 
 private:
 	// File format
@@ -143,6 +138,12 @@ private:
 		bool sRGB;
 		QByteArray Data;
 		QList<QImage> Image;
+		struct
+		{
+			char Unknown1[2];
+			uchar Unknown2;
+			qint64 Unknown3;
+		} Unknowns;
 	};
 
 	void init();
@@ -150,12 +151,23 @@ private:
 	bool decodeX8R8G8B8(PapaFile::texture_t& texture);
 	bool decodeDXT1(PapaFile::texture_t& texture);
 	bool decodeDXT5(PapaFile::texture_t& texture);
+	bool encodeA8R8G8B8(PapaFile::texture_t& texture);
+	bool encodeX8R8G8B8(PapaFile::texture_t& texture);
+	bool encodeDXT1(PapaFile::texture_t& texture);
+	bool encodeDXT5(PapaFile::texture_t& texture);
 	void convertFromSRGB(QRgb* palette, int size);
 
 	bool Valid;
+	bool Modified;
 	QString LastError;
 	QList<bone_t> Bones;
 	QList<texture_t> Textures;
+	QString Filename;
+	struct
+	{
+		qint16 Unknown1[2];
+		qint16 Unknown2[4];
+	} HeaderUnknowns;
 };
 
 #endif // PAPAFILE_H

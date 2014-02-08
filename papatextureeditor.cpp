@@ -19,6 +19,8 @@
 #include "texturelistmodel.h"
 #include "papafile.h"
 
+#define VERSION "0.1"
+
 PapaTextureEditor::PapaTextureEditor()
  : Image(NULL), Label(NULL), InfoLabel(NULL), Model(NULL), TextureList(NULL)
 {
@@ -55,11 +57,14 @@ PapaTextureEditor::PapaTextureEditor()
 	setCentralWidget( horsplitter );
 	QAction* quitAction = new QAction(this);
 	quitAction->setText( "&Quit" );
-	quitAction->setShortcut(QKeySequence("Ctrl+Q"));
-/*	QAction* saveAction = new QAction(this);
+	quitAction->setShortcut(QKeySequence("Ctrl+q"));
+	QAction* saveAction = new QAction(this);
 	saveAction->setText( "&Save" );
-	saveAction->setShortcut(QKeySequence("Ctrl+S"));
-*/	ImportAction = new QAction(this);
+	saveAction->setShortcut(QKeySequence("Ctrl+s"));
+	QAction* saveAsAction = new QAction(this);
+	saveAsAction->setText( "S&ave as..." );
+	saveAsAction->setShortcut(QKeySequence("Ctrl+Shift+s"));
+	ImportAction = new QAction(this);
 	ImportAction->setText( "&Import..." );
 	ImportAction->setShortcut(QKeySequence("Ctrl+i"));
 	QAction* exportAction = new QAction(this);
@@ -67,9 +72,10 @@ PapaTextureEditor::PapaTextureEditor()
 	exportAction->setShortcut(QKeySequence("Ctrl+e"));
 	QAction* openAction = new QAction(this);
 	openAction->setText( "&Open directory..." );
-	openAction->setShortcut(QKeySequence("Ctrl+O"));
-	connect(quitAction, SIGNAL(triggered()), SLOT(close()) );
-//	connect(saveAction, SIGNAL(triggered()), SLOT(saveImage()) );
+	openAction->setShortcut(QKeySequence("Ctrl+o"));
+	connect(quitAction, SIGNAL(triggered()), SLOT(close()));
+	connect(saveAction, SIGNAL(triggered()), SLOT(savePapa()));
+	connect(saveAsAction, SIGNAL(triggered()), SLOT(saveAsPapa()));
 	connect(ImportAction, SIGNAL(triggered()), SLOT(importImage()));
 	connect(exportAction, SIGNAL(triggered()), SLOT(exportImage()));
 	connect(openAction, SIGNAL(triggered()), SLOT(openDirectory()));
@@ -77,8 +83,14 @@ PapaTextureEditor::PapaTextureEditor()
 	menu->addAction(openAction);
 	menu->addAction(ImportAction);
 	menu->addAction(exportAction);
-//	menu->addAction(saveAction);
+	menu->addAction(saveAction);
+	menu->addAction(saveAsAction);
 	menu->addAction(quitAction);
+
+	QAction* aboutAction = new QAction(this);
+	aboutAction->setText("&About...");
+	connect(aboutAction, SIGNAL(triggered()), SLOT(about()));
+	menuBar()->addMenu("&Help")->addAction(aboutAction);
 
 	ImportAction->setEnabled(false);
 }
@@ -87,37 +99,22 @@ PapaTextureEditor::~PapaTextureEditor()
 {
 }
 
-void PapaTextureEditor::saveImage()
+void PapaTextureEditor::savePapa()
 {
-	QFile papaFile("skybox_01_back.papa");
-	if(!papaFile.open(QIODevice::ReadWrite))
-		return;
-
-	papaFile.seek(0x80);
-	QByteArray data(4*1024*1024, Qt::Uninitialized);
-	for(int i = 0; i < 4 * 1024 * 1024; i += 4)
-	{
-		int pixelindex = i / 4;
-		QRgb colour = Image->pixel(pixelindex / 1024, pixelindex % 1024);
-		data[i] = (unsigned char)qRed(colour);
-		data[i+1] = (unsigned char)qGreen(colour);
-		data[i+2] = (unsigned char)qBlue(colour);
-		data[i+3] = (unsigned char)qAlpha(colour);
-	}
-	papaFile.write(data);
+	if(!Model->savePapa(TextureList->currentIndex()))
+		QMessageBox::critical(this, "Save failed", "Couldn't save file, reason: " + Model->lastError());
 }
 
-void PapaTextureEditor::putMeInIt()
+void PapaTextureEditor::saveAsPapa()
 {
-	QPainter p(Image);
-	QImageReader *reader = new QImageReader("/home/jarno/Afbeeldingen/blackmage.png");
-	QImage modNewIcon = reader->read();
-	delete reader;
-	p.setCompositionMode(QPainter::CompositionMode_SourceOver);
-	QRect size(QPoint(512-75,512-75), modNewIcon.size());
-	p.drawImage(size, modNewIcon);
-
-	Label->setPixmap(QPixmap::fromImage(*Image));
+	QSettings settings("DeathByDenim", "papatextureeditor");
+	QString filename = QFileDialog::getSaveFileName(this, "Save texture as papa", settings.value("saveasdirectory").toString(), "Papa files(*.papa)");
+	if(Model && filename.length() > 0)
+	{
+		settings.setValue("saveasdirectory", QFileInfo(filename).canonicalPath());
+		if(!Model->savePapa(TextureList->currentIndex(), filename))
+			QMessageBox::critical(this, "Save failed", "Couldn't save file, reason: " + Model->lastError());
+	}
 }
 
 void PapaTextureEditor::openDirectory()
@@ -126,7 +123,7 @@ void PapaTextureEditor::openDirectory()
 	QString foldername = QFileDialog::getExistingDirectory(this, "Open texture folder", settings.value("texturedirectory").toString());
 	if(Model && foldername.length() > 0)
 	{
-		settings.setValue("texturedirectory", QFileInfo(foldername).canonicalPath() + "/.");
+		settings.setValue("texturedirectory", QFileInfo(foldername).canonicalPath());
 		if(!Model->loadFromDirectory(foldername))
 		{
 			QMessageBox::critical(this, "I/O error", QString("Couldn't open \"%1\".").arg(foldername));
@@ -199,29 +196,34 @@ void PapaTextureEditor::exportImage()
 	if(!im)
 		return;
 
-	QString filter;
+	QString filter = "Portable Network Graphics (PNG)(*.png)";
 	QList<QByteArray> supportedImageFormats = QImageWriter::supportedImageFormats();
 	for(QList<QByteArray>::const_iterator format = supportedImageFormats.constBegin(); format != supportedImageFormats.constEnd(); ++format)
 	{
-		if(format != supportedImageFormats.constBegin())
-			filter += ";;";
-		filter += QString(*format).toLower() + " (*." + QString(*format).toLower() + ')';
+		if((*format).toLower() == "png")
+			continue;
+
+		filter += ";;";
+		filter += QString(*format).toLower() + "(*." + QString(*format).toLower() + ')';
 	}
 
 	QSettings settings("DeathByDenim", "papatextureeditor");
 	QString filename = QFileDialog::getSaveFileName(this, "Save image", settings.value("exportdirectory").toString(), filter);
-
 	if(filename.length() > 0)
-		qDebug() << filename;
+	{
+		settings.setValue("exportdirectory", QFileInfo(filename).canonicalPath());
 
-	settings.setValue("exportdirectory", QFileInfo(filename).canonicalPath());
+		QImageWriter writer(filename);
+		QByteArray format;
+		format.append(QFileInfo(filename).suffix());
+		writer.setFormat(format);
+		writer.write((*im));
+	}
+}
 
-
-	QImageWriter writer(filename);
-	QByteArray format;
-	format.append(QFileInfo(filename).suffix());
-	writer.setFormat(format);
-	writer.write((*im));
+void PapaTextureEditor::about()
+{
+	QMessageBox::information(this, "About", "Created by DeathByDenim\nVersion " VERSION);
 }
 
 #include "papatextureeditor.moc"
