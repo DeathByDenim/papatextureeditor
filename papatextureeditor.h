@@ -16,21 +16,25 @@ private:
 	QImage *Image;
 	QLabel *Label;
 	TextureListModel* Model;
-    QTreeView* TextureList;
-    QLabel* InfoLabel;
-    QAction* ImportAction;
+	QTreeView* TextureList;
+	QLabel* InfoLabel;
+	QAction* ImportAction;
+	QAction* SaveAction;
+	QAction* SaveAsAction;
+    QAction* ExportAction;
 public:
-    PapaTextureEditor();
-    virtual ~PapaTextureEditor();
+	PapaTextureEditor();
+	virtual ~PapaTextureEditor();
 	
 public slots:
 	void openDirectory();
 	void importImage();
 	void exportImage();
-    void savePapa();
-    void saveAsPapa();
+	void savePapa();
+	void saveAsPapa();
 	void textureClicked(const QModelIndex& index);
 	void about();
+	void help();
 };
 
 #endif // papatextureeditor_H

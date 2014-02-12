@@ -146,6 +146,34 @@ private:
 		} Unknowns;
 	};
 
+	union colour_t
+	{
+		quint16 value;
+		struct
+		{
+			quint16 red : 5;
+			quint16 green : 6;
+			quint16 blue : 5;
+		} rgb;
+	};
+
+	struct DXT1
+	{
+		colour_t colour0;
+		colour_t colour1;
+		quint32 rgbbits;
+	};
+
+	struct DXT5
+	{
+		quint8 alpha0;
+		quint8 alpha1;
+		quint64 alphabits : 48;
+		colour_t colour0;
+		colour_t colour1;
+		quint32 rgbbits;
+	};
+
 	void init();
 	bool decodeA8R8G8B8(PapaFile::texture_t& texture);
 	bool decodeX8R8G8B8(PapaFile::texture_t& texture);
@@ -156,6 +184,8 @@ private:
 	bool encodeDXT1(PapaFile::texture_t& texture);
 	bool encodeDXT5(PapaFile::texture_t& texture);
 	void convertFromSRGB(QRgb* palette, int size);
+    void findOptimalColours(PapaFile::colour_t& colour0, PapaFile::colour_t& colour1, const QList<PapaFile::colour_t>& colours);
+    long unsigned int calculateChi2_four(PapaFile::colour_t col1, PapaFile::colour_t col2, const QList< PapaFile::colour_t >& colours);
 
 	bool Valid;
 	bool Modified;

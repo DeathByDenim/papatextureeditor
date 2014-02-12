@@ -355,6 +355,45 @@ bool PapaFile::save(QString filename)
 }
 
 
+void PapaFile::findOptimalColours(PapaFile::colour_t& colour0, PapaFile::colour_t& colour1, const QList<colour_t> &colours)
+{
+	// Find extreme colours
+	QRgb maxdistance = 0;
+	int col1 = -1, col2 = -1;
+	for(int i = 0; i < colours.count(); i++)
+	{
+		for(int j = i + 1; j < colours.count(); j++)
+		{
+			QRgb distance = sqrt(
+				(colours[i].rgb.red - colours[j].rgb.red) * (colours[i].rgb.red - colours[j].rgb.red) / 1024. +
+				(colours[i].rgb.green - colours[j].rgb.green) * (colours[i].rgb.green - colours[j].rgb.green) / 4096. +
+				(colours[i].rgb.blue - colours[j].rgb.blue) * (colours[i].rgb.blue - colours[j].rgb.blue) / 1024.
+			);
+			if(distance > maxdistance)
+			{
+				maxdistance = distance;
+				col1 = i;
+				col2 = j;
+			}
+		}
+	}
+
+	unsigned long chi2 = calculateChi2_four(colours[col1], colours[col2], colours);
+}
+
+unsigned long PapaFile::calculateChi2_four(colour_t col1, colour_t col2, const QList<colour_t> &colours)
+{
+	colour_t col3, col4;
+	col3.rgb.red = (col1.rgb.red + 2 * col2.rgb.red) / 3;
+	col4.rgb.red = (2 * col1.rgb.red + col2.rgb.red) / 3;
+	unsigned long chi2 = 0;
+	for(QList<colour_t>::const_iterator col = colours.constBegin(); col != colours.constEnd(); ++col)
+	{
+//		chi2 += 
+	}
+}
+
+
 bool PapaFile::decodeA8R8G8B8(PapaFile::texture_t& texture)
 {
 	int j = 0;
@@ -462,33 +501,7 @@ bool PapaFile::encodeX8R8G8B8(PapaFile::texture_t& texture)
 
 bool PapaFile::decodeDXT1(PapaFile::texture_t& texture)
 {
-	union colour_t
-	{
-		quint16 value;
-		struct
-		{
-			quint16 red : 5;
-			quint16 green : 6;
-			quint16 blue : 5;
-		} rgb;
-	};
-	
-	struct row_t
-	{
-		quint8 col0 : 2;
-		quint8 col1 : 2;
-		quint8 col2 : 2;
-		quint8 col3 : 2;
-	};
-
-	const struct DXT1
-	{
-		colour_t colour0;
-		colour_t colour1;
-		quint32 rgbbits;
-	} *ptr;
-
-	ptr = (const struct DXT1 *)(texture.Data.data());
+	const struct DXT1 *ptr = (const struct DXT1 *)(texture.Data.data());
 
 	for(int m = 0; m < texture.NumberMinimaps; ++m)
 	{
@@ -561,34 +574,122 @@ bool PapaFile::decodeDXT1(PapaFile::texture_t& texture)
 
 bool PapaFile::encodeDXT1(PapaFile::texture_t& texture)
 {
-	return false;
+	struct DXT1 *ptr = (struct DXT1 *)(texture.Data.data());
+
+	for(int m = 0; m < texture.NumberMinimaps; ++m)
+	{
+		QImage image(texture.Image[m]);
+		qint16 width = image.width();
+		qint16 height = image.height();
+
+		for(int j = 0; j < (width * height + 15)/ 16; j++) // The +15 is to make sure it works for 2x2 and 1x1 minimaps
+		{
+			QList<colour_t> colours;
+
+			int x0 = j % ((width+3)/4);
+			int y0 = j / ((height+3)/4);
+
+			for(int y = 0; y < std::min(4, (int)height); ++y)
+			{
+				for(int x = 0; x < std::min(4, (int)width); ++x)
+				{
+					QRgb qcolour = image.pixel(x, y);
+					colour_t colour;
+					colour.rgb.red = 32 * qRed(qcolour) / 255;
+					colour.rgb.green = 64 * qGreen(qcolour) / 255;
+					colour.rgb.blue = 32 * qBlue(qcolour) / 255;
+					bool havealready = false;
+					for(int i = 0; i < colours.count(); i++)
+					{
+						if(colours[i].value == colour.value)
+						{
+							havealready = true;
+							break;
+						}
+					}
+					if(!havealready)
+						colours.push_back(colour);
+				}
+			}
+
+			colour_t colour0, colour1;
+			switch(colours.count())
+			{
+				case 0:
+					return false;
+				case 1:
+					colour0 = colours[0];
+					break;
+				case 2:
+					colour0 = colours[0];
+					colour1 = colours[1];
+					break;
+				default:
+					findOptimalColours(colour0, colour1, colours);
+			}
+/*
+			colour_t colour2, colour3;
+			QRgb palette[4];
+			if(ptr->colour0.value > ptr->colour1.value)
+			{	// Four colours
+				
+				// Interpolate the other two colours.
+				colour2.rgb.red = (2 * ptr->colour0.rgb.red + ptr->colour1.rgb.red) / 3;
+				colour2.rgb.green = (2 * ptr->colour0.rgb.green + ptr->colour1.rgb.green) / 3;
+				colour2.rgb.blue = (2 * ptr->colour0.rgb.blue + ptr->colour1.rgb.blue) / 3;
+				colour3.rgb.red = (ptr->colour0.rgb.red + 2 * ptr->colour1.rgb.red) / 3;
+				colour3.rgb.green = (ptr->colour0.rgb.green + 2 * ptr->colour1.rgb.green) / 3;
+				colour3.rgb.blue = (ptr->colour0.rgb.blue + 2 * ptr->colour1.rgb.blue) / 3;
+
+				palette[0] = qRgb(255*ptr->colour0.rgb.red/32, 255*ptr->colour0.rgb.green/64, 255*ptr->colour0.rgb.blue/32);
+				palette[1] = qRgb(255*ptr->colour1.rgb.red/32, 255*ptr->colour1.rgb.green/64, 255*ptr->colour1.rgb.blue/32);
+				palette[2] = qRgb(255*colour2.rgb.red/32, 255*colour2.rgb.green/64, 255*colour2.rgb.blue/32);
+				palette[3] = qRgb(255*colour3.rgb.red/32, 255*colour3.rgb.green/64, 255*colour3.rgb.blue/32);
+			}
+			else
+			{	// Three colours with black
+				
+				// The remaining colour is the average of the other two colours.
+				colour2.rgb.red = (ptr->colour0.rgb.red + ptr->colour1.rgb.red) / 2;  
+				colour2.rgb.green = (ptr->colour0.rgb.green + ptr->colour1.rgb.green) / 2;  
+				colour2.rgb.blue = (ptr->colour0.rgb.blue + ptr->colour1.rgb.blue) / 2;  
+				colour3.value = 0;
+
+				palette[0] = qRgb(255*ptr->colour0.rgb.red/32, 255*ptr->colour0.rgb.green/64, 255*ptr->colour0.rgb.blue/32);
+				palette[1] = qRgb(255*ptr->colour1.rgb.red/32, 255*ptr->colour1.rgb.green/64, 255*ptr->colour1.rgb.blue/32);
+				palette[2] = qRgb(255*colour2.rgb.red/32, 255*colour2.rgb.green/64, 255*colour2.rgb.blue/32);
+				palette[3] = qRgb(0, 0, 0);
+			}
+
+			if(texture.sRGB)
+				convertFromSRGB(palette, 4);
+
+			int x0 = j % ((width+3)/4);
+			int y0 = j / ((height+3)/4);
+
+			quint32 rgbbits = ptr->rgbbits;
+			for(int y = 0; y < std::min(4, (int)height); ++y)
+			{
+				for(int x = 0; x < std::min(4, (int)width); ++x)
+				{
+					quint8 colourindex = rgbbits & 0b11;
+					image.setPixel(4*x0 + x, 4*y0 + y, qRgb(qRed(palette[colourindex]), qGreen(palette[colourindex]), qBlue(palette[colourindex])));
+					rgbbits >>= 2;
+				}
+			}
+*/
+			ptr++;
+		}
+//		texture.Image.push_back(image);
+	}
+
+	return true;
 }
 
 
 bool PapaFile::decodeDXT5(PapaFile::texture_t& texture)
 {
-	union colour_t
-	{
-		quint16 value;
-		struct
-		{
-			quint16 red : 5;
-			quint16 green : 6;
-			quint16 blue : 5;
-		} rgb;
-	};
-
-	const struct DXT5
-	{
-		quint8 alpha0;
-		quint8 alpha1;
-		quint64 alphabits : 48;
-		colour_t colour0;
-		colour_t colour1;
-		quint32 rgbbits;
-	} *ptr;
-
-	ptr = (const struct DXT5 *)(texture.Data.data());
+	const struct DXT5 *ptr = (const struct DXT5 *)(texture.Data.data());
 
 	for(int i = 0; i < texture.NumberMinimaps; i++)
 	{

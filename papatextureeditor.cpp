@@ -18,6 +18,7 @@
 #include <QSettings>
 #include "texturelistmodel.h"
 #include "papafile.h"
+#include "helpdialog.h"
 
 #define VERSION "0.1"
 
@@ -58,41 +59,50 @@ PapaTextureEditor::PapaTextureEditor()
 	QAction* quitAction = new QAction(this);
 	quitAction->setText( "&Quit" );
 	quitAction->setShortcut(QKeySequence("Ctrl+q"));
-	QAction* saveAction = new QAction(this);
-	saveAction->setText( "&Save" );
-	saveAction->setShortcut(QKeySequence("Ctrl+s"));
-	QAction* saveAsAction = new QAction(this);
-	saveAsAction->setText( "S&ave as..." );
-	saveAsAction->setShortcut(QKeySequence("Ctrl+Shift+s"));
+	SaveAction = new QAction(this);
+	SaveAction->setText( "&Save" );
+	SaveAction->setShortcut(QKeySequence("Ctrl+s"));
+	SaveAsAction = new QAction(this);
+	SaveAsAction->setText( "S&ave as..." );
+	SaveAsAction->setShortcut(QKeySequence("Ctrl+Shift+s"));
 	ImportAction = new QAction(this);
 	ImportAction->setText( "&Import..." );
 	ImportAction->setShortcut(QKeySequence("Ctrl+i"));
-	QAction* exportAction = new QAction(this);
-	exportAction->setText( "&Export..." );
-	exportAction->setShortcut(QKeySequence("Ctrl+e"));
+	ExportAction = new QAction(this);
+	ExportAction->setText( "&Export..." );
+	ExportAction->setShortcut(QKeySequence("Ctrl+e"));
 	QAction* openAction = new QAction(this);
 	openAction->setText( "&Open directory..." );
 	openAction->setShortcut(QKeySequence("Ctrl+o"));
 	connect(quitAction, SIGNAL(triggered()), SLOT(close()));
-	connect(saveAction, SIGNAL(triggered()), SLOT(savePapa()));
-	connect(saveAsAction, SIGNAL(triggered()), SLOT(saveAsPapa()));
+	connect(SaveAction, SIGNAL(triggered()), SLOT(savePapa()));
+	connect(SaveAsAction, SIGNAL(triggered()), SLOT(saveAsPapa()));
 	connect(ImportAction, SIGNAL(triggered()), SLOT(importImage()));
-	connect(exportAction, SIGNAL(triggered()), SLOT(exportImage()));
+	connect(ExportAction, SIGNAL(triggered()), SLOT(exportImage()));
 	connect(openAction, SIGNAL(triggered()), SLOT(openDirectory()));
 	QMenu *menu = menuBar()->addMenu("&File");
 	menu->addAction(openAction);
 	menu->addAction(ImportAction);
-	menu->addAction(exportAction);
-	menu->addAction(saveAction);
-	menu->addAction(saveAsAction);
+	menu->addAction(ExportAction);
+	menu->addAction(SaveAction);
+	menu->addAction(SaveAsAction);
 	menu->addAction(quitAction);
 
 	QAction* aboutAction = new QAction(this);
 	aboutAction->setText("&About...");
 	connect(aboutAction, SIGNAL(triggered()), SLOT(about()));
-	menuBar()->addMenu("&Help")->addAction(aboutAction);
+	QAction* helpAction = new QAction(this);
+	helpAction->setText("&Help...");
+	helpAction->setShortcut(QKeySequence("f1"));
+	connect(helpAction, SIGNAL(triggered()), SLOT(help()));
+	QMenu *helpMenu = menuBar()->addMenu("&Help");
+	helpMenu->addAction(helpAction);
+	helpMenu->addAction(aboutAction);
 
 	ImportAction->setEnabled(false);
+	SaveAction->setEnabled(false);
+	SaveAsAction->setEnabled(false);
+	ExportAction->setEnabled(false);
 }
 
 PapaTextureEditor::~PapaTextureEditor()
@@ -150,10 +160,18 @@ void PapaTextureEditor::textureClicked(const QModelIndex& index)
 
 		InfoLabel->setText(Model->info(index));
 		
-		ImportAction->setEnabled(Model->info(index).contains("A8R8G8B8"));
+		ImportAction->setEnabled(Model->info(index).contains("8R8G8B8"));
+		SaveAction->setEnabled(Model->info(index).contains("8R8G8B8"));
+		SaveAsAction->setEnabled(Model->info(index).contains("8R8G8B8"));
+		ExportAction->setEnabled(im != NULL);
 	}
 	else
+	{
 		ImportAction->setEnabled(false);
+		SaveAction->setEnabled(false);
+		SaveAsAction->setEnabled(false);
+		ExportAction->setEnabled(false);
+	}
 }
 
 void PapaTextureEditor::importImage()
@@ -224,6 +242,12 @@ void PapaTextureEditor::exportImage()
 void PapaTextureEditor::about()
 {
 	QMessageBox::information(this, "About", "Created by DeathByDenim\nVersion " VERSION);
+}
+
+void PapaTextureEditor::help()
+{
+	HelpDialog *helpDialog = new HelpDialog(this);
+	helpDialog->exec();
 }
 
 #include "papatextureeditor.moc"
