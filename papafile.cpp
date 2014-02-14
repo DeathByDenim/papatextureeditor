@@ -285,8 +285,43 @@ bool PapaFile::save(QString filename)
 		return false;
 	}
 
-	for(QList<texture_t>::const_iterator tex = Textures.constBegin(); tex != Textures.constEnd(); ++tex)
+	for(QList<texture_t>::iterator tex = Textures.begin(); tex != Textures.end(); ++tex)
 	{
+		switch(tex->Format)
+		{
+			case texture_t::A8R8G8B8:
+				if(!encodeA8R8G8B8(*tex))
+				{
+					LastError = "Encoding texture in A8R8G8B8 failed.";
+					return false;
+				}
+				break;
+			case texture_t::X8R8G8B8:
+				if(!encodeX8R8G8B8(*tex))
+				{
+					LastError = "Encoding texture in X8R8G8B8 failed.";
+					return false;
+				}
+				break;
+			case texture_t::DXT1:
+				if(!encodeDXT1(*tex))
+				{
+					LastError = "Encoding texture in DXT1 failed.";
+					return false;
+				}
+				break;
+			case texture_t::DXT5:
+				if(!encodeDXT5(*tex))
+				{
+					LastError = "Encoding texture in DXT5 failed.";
+					return false;
+				}
+				break;
+			default:
+				LastError = QString("Encoding not supported in format %1").arg(tex->Format);
+				return false;
+		}
+
 		TextureInformationHeader textureinformationheader;
 		textureinformationheader.Unknown1[0] = tex->Unknowns.Unknown1[0];
 		textureinformationheader.Unknown1[1] = tex->Unknowns.Unknown1[1];
@@ -350,6 +385,7 @@ bool PapaFile::save(QString filename)
 
 	Filename = filename;
 	LastError = "";
+	Modified = false;
 
 	return true;
 }
@@ -410,7 +446,7 @@ bool PapaFile::decodeA8R8G8B8(PapaFile::texture_t& texture)
 		for(; j < 4 * width * height; j += 4)
 		{
 			int pixelindex = j / 4;
-			image.setPixel(pixelindex % width, /*height - 1 -*/ (pixelindex / width), qRgba(texture.Data[j], texture.Data[j+1], texture.Data[j+2], texture.Data[j+3]));
+			image.setPixel(pixelindex % width, (pixelindex / width), qRgba(texture.Data[j], texture.Data[j+1], texture.Data[j+2], texture.Data[j+3]));
 		}
 		texture.Image.push_back(image);
 	}
@@ -431,7 +467,7 @@ bool PapaFile::encodeA8R8G8B8(PapaFile::texture_t& texture)
 // TODO: Do something with the sRGB bit
 //		convertFromSRGB();
 
-		QImage image = QImage(width, height, QImage::Format_ARGB32);
+		QImage image = texture.Image[m];
 		for(; j < 4 * width * height; j += 4)
 		{
 			int pixelindex = j / 4;
@@ -441,7 +477,6 @@ bool PapaFile::encodeA8R8G8B8(PapaFile::texture_t& texture)
 			texture.Data[j+2] = qBlue(colour);
 			texture.Data[j+3] = qAlpha(colour);
 		}
-		texture.Image.push_back(image);
 	}
 
 	return true;
@@ -482,7 +517,7 @@ bool PapaFile::encodeX8R8G8B8(PapaFile::texture_t& texture)
 		qint16 width = texture.Width / divider;
 		qint16 height = texture.Height / divider;
 
-		QImage image = QImage(width, height, QImage::Format_ARGB32);
+		QImage image = texture.Image[m];
 		for(; j < 4 * width * height; j += 4)
 		{
 			int pixelindex = j / 4;
@@ -492,7 +527,6 @@ bool PapaFile::encodeX8R8G8B8(PapaFile::texture_t& texture)
 			texture.Data[j+2] = qBlue(colour);
 //			texture.Data[j+3] = <NOT USED>;
 		}
-		texture.Image.push_back(image);
 	}
 
 	return true;
@@ -852,14 +886,15 @@ bool PapaFile::importImage(const QImage &newimage, const int textureindex)
 		if(newimage.size() != Textures[textureindex].Image[0].size())
 			return false;
 
-		Textures[textureindex].Image[0] = newimage.copy();
+		Textures[textureindex].Image.clear();
+		Textures[textureindex].Image.push_back(newimage);
 		for(int m = 1; m < Textures[textureindex].NumberMinimaps; m++)
 		{
 			int divider = pow(2, m);
 			qint16 width = Textures[textureindex].Width / divider;
 			qint16 height = Textures[textureindex].Height / divider;
 
-			Textures[textureindex].Image[m] = newimage.scaled(width, height);
+			Textures[textureindex].Image.push_back(newimage.scaled(width, height));
 		}
 	}
 	else
