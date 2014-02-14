@@ -20,7 +20,7 @@
 #include "papafile.h"
 #include "helpdialog.h"
 
-#define VERSION "0.1"
+#define VERSION "0.2"
 
 PapaTextureEditor::PapaTextureEditor()
  : Image(NULL), Label(NULL), InfoLabel(NULL), Model(NULL), TextureList(NULL)
