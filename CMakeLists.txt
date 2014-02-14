@@ -2,6 +2,8 @@ project(papatextureeditor)
 cmake_minimum_required(VERSION 2.6)
 find_package(Qt4 REQUIRED)
 
+list( APPEND CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
+
 include_directories(${QT_INCLUDES} ${CMAKE_CURRENT_BINARY_DIR})
 
 set(papatextureeditor helpdialog.cpp papafile.cpp texturelistmodel.cpp papatextureeditor.cpp main.cpp)

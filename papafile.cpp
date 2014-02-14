@@ -36,18 +36,8 @@ PapaFile::PapaFile()
 	init();
 }
 
-PapaFile::PapaFile(const PapaFile& other)
-{
-	// TODO: Implement this.
-}
-
 PapaFile::~PapaFile()
 {
-}
-
-PapaFile& PapaFile::operator=(const PapaFile& other)
-{
-	// TODO: Implement this.
 }
 
 void PapaFile::init()
@@ -83,13 +73,13 @@ bool PapaFile::load(QString filename)
 
 	qint16 numberOfBones = papaheader.NumberOfBones;
 	qint16 numberOfTextures = papaheader.NumberOfTextures;
-	qint16 numberOfVertexBuffers = papaheader.NumberOfVertexBuffers;
+/*	qint16 numberOfVertexBuffers = papaheader.NumberOfVertexBuffers;
 	qint16 numberOfIndexBuffers = papaheader.NumberOfIndexBuffers;
 	qint16 numberOfMaterials = papaheader.NumberOfMaterials;
 	qint16 numberOfMeshes = papaheader.NumberOfMeshes;
 	qint16 numberOfSkeletons = papaheader.NumberOfSkeletons;
 	qint16 numberOfModels = papaheader.NumberOfModels;
-
+*/
 	HeaderUnknowns.Unknown1[0] = papaheader.Unknown1[0];
 	HeaderUnknowns.Unknown1[1] = papaheader.Unknown1[1];
 	HeaderUnknowns.Unknown2[0] = papaheader.Unknown2[0];
@@ -415,18 +405,42 @@ void PapaFile::findOptimalColours(PapaFile::colour_t& colour0, PapaFile::colour_
 	}
 
 	unsigned long chi2 = calculateChi2_four(colours[col1], colours[col2], colours);
+	qDebug() << "chi2 =" << chi2;
+
+	colour0.value = colours[col1].value;
+	colour1.value = colours[col2].value;
 }
 
 unsigned long PapaFile::calculateChi2_four(colour_t col1, colour_t col2, const QList<colour_t> &colours)
 {
-	colour_t col3, col4;
-	col3.rgb.red = (col1.rgb.red + 2 * col2.rgb.red) / 3;
-	col4.rgb.red = (2 * col1.rgb.red + col2.rgb.red) / 3;
+	colour_t colourts[4];
+	colourts[0].value = col1.value;
+	colourts[1].rgb.red = (col1.rgb.red + 2 * col2.rgb.red) / 3;
+	colourts[1].rgb.green = (col1.rgb.green + 2 * col2.rgb.green) / 3;
+	colourts[1].rgb.blue = (col1.rgb.blue + 2 * col2.rgb.blue) / 3;
+	colourts[2].rgb.red = (2 * col1.rgb.red + col2.rgb.red) / 3;
+	colourts[2].rgb.green = (2 * col1.rgb.green + col2.rgb.green) / 3;
+	colourts[2].rgb.blue = (2 * col1.rgb.blue + col2.rgb.blue) / 3;
+	colourts[3].value = col2.value;
+
 	unsigned long chi2 = 0;
 	for(QList<colour_t>::const_iterator col = colours.constBegin(); col != colours.constEnd(); ++col)
 	{
-//		chi2 += 
+		long distance = 9999999999;
+		for(int i = 0; i < 4; i++)
+		{
+			long distance2 =
+				(colourts[i].rgb.red - col->rgb.red) * (colourts[i].rgb.red - col->rgb.red) +
+				(colourts[i].rgb.green - col->rgb.green) * (colourts[i].rgb.green - col->rgb.green) +
+				(colourts[i].rgb.blue - col->rgb.blue) * (colourts[i].rgb.blue - col->rgb.blue);
+			if(distance2 < distance)
+				distance = distance2;
+		}
+
+		chi2 += distance;
 	}
+
+	return chi2;
 }
 
 
@@ -495,7 +509,7 @@ bool PapaFile::decodeX8R8G8B8(PapaFile::texture_t& texture)
 		qint16 width = texture.Width / divider;
 		qint16 height = texture.Height / divider;
 
-		QImage image = QImage(width, height, QImage::Format_ARGB32);
+		QImage image = QImage(width, height, QImage::Format_RGB32);
 		for(; j < 4 * width * height; j += 4)
 		{
 			int pixelindex = j / 4;
@@ -543,7 +557,7 @@ bool PapaFile::decodeDXT1(PapaFile::texture_t& texture)
 		qint16 width = texture.Width / divider;
 		qint16 height = texture.Height / divider;
 
-		QImage image = QImage(width, height, QImage::Format_ARGB32);
+		QImage image = QImage(width, height, QImage::Format_RGB32);
 		image.fill(0);
 
 		for(int j = 0; j < (width * height + 15)/ 16; j++) // The +15 is to make sure it works for 2x2 and 1x1 minimaps
@@ -627,7 +641,7 @@ bool PapaFile::encodeDXT1(PapaFile::texture_t& texture)
 			{
 				for(int x = 0; x < std::min(4, (int)width); ++x)
 				{
-					QRgb qcolour = image.pixel(x, y);
+					QRgb qcolour = image.pixel(x0 + x, y0 + y);
 					colour_t colour;
 					colour.rgb.red = 32 * qRed(qcolour) / 255;
 					colour.rgb.green = 64 * qGreen(qcolour) / 255;
@@ -661,7 +675,7 @@ bool PapaFile::encodeDXT1(PapaFile::texture_t& texture)
 				default:
 					findOptimalColours(colour0, colour1, colours);
 			}
-/*
+
 			colour_t colour2, colour3;
 			QRgb palette[4];
 			if(ptr->colour0.value > ptr->colour1.value)
@@ -696,10 +710,7 @@ bool PapaFile::encodeDXT1(PapaFile::texture_t& texture)
 			}
 
 			if(texture.sRGB)
-				convertFromSRGB(palette, 4);
-
-			int x0 = j % ((width+3)/4);
-			int y0 = j / ((height+3)/4);
+				convertToSRGB(palette, 4);
 
 			quint32 rgbbits = ptr->rgbbits;
 			for(int y = 0; y < std::min(4, (int)height); ++y)
@@ -711,10 +722,9 @@ bool PapaFile::encodeDXT1(PapaFile::texture_t& texture)
 					rgbbits >>= 2;
 				}
 			}
-*/
+
 			ptr++;
 		}
-//		texture.Image.push_back(image);
 	}
 
 	return true;
@@ -824,10 +834,12 @@ QString PapaFile::format()
 				return "DXT1";
 			case texture_t::DXT5:
 				return "DXT5";
+			default:
+				return "Unsupported";
 		}
 	}
-	
-	return "Unsupported";
+
+	return "None";
 }
 
 void PapaFile::convertFromSRGB(QRgb* palette, int size)
@@ -860,6 +872,12 @@ void PapaFile::convertFromSRGB(QRgb* palette, int size)
 		);
 	}
 }
+
+void PapaFile::convertToSRGB(QRgb* palette, int size)
+{
+// TODO: Implement
+}
+
 
 const QImage *PapaFile::image(int textureindex, int mipindex)
 {

@@ -30,9 +30,9 @@ class PapaFile : public QObject
 public:
 	PapaFile();
 	PapaFile(const QString &filename);
-	PapaFile(const PapaFile& other);
+//	PapaFile(const PapaFile& other);
 	~PapaFile();
-	PapaFile& operator=(const PapaFile& other);
+//	PapaFile& operator=(const PapaFile& other);
 	bool load(QString filename);
 	bool save(QString filename = "");
 	bool isValid() {return Valid;}
@@ -184,6 +184,7 @@ private:
 	bool encodeDXT1(PapaFile::texture_t& texture);
 	bool encodeDXT5(PapaFile::texture_t& texture);
 	void convertFromSRGB(QRgb* palette, int size);
+    void convertToSRGB(QRgb* palette, int size);
     void findOptimalColours(PapaFile::colour_t& colour0, PapaFile::colour_t& colour1, const QList<PapaFile::colour_t>& colours);
     long unsigned int calculateChi2_four(PapaFile::colour_t col1, PapaFile::colour_t col2, const QList< PapaFile::colour_t >& colours);
 

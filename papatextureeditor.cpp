@@ -23,7 +23,7 @@
 #define VERSION "0.2"
 
 PapaTextureEditor::PapaTextureEditor()
- : Image(NULL), Label(NULL), InfoLabel(NULL), Model(NULL), TextureList(NULL)
+ : Image(NULL), Label(NULL), Model(NULL), TextureList(NULL), InfoLabel(NULL)
 {
 	setMinimumSize(1000, 700);
 
