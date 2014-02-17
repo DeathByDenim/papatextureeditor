@@ -159,10 +159,10 @@ void PapaTextureEditor::textureClicked(const QModelIndex& index)
 		}
 
 		InfoLabel->setText(Model->info(index));
-		
-		ImportAction->setEnabled(Model->info(index).contains("8R8G8B8"));
-		SaveAction->setEnabled(Model->info(index).contains("8R8G8B8"));
-		SaveAsAction->setEnabled(Model->info(index).contains("8R8G8B8"));
+
+		ImportAction->setEnabled(Model->isEditable(index));
+		SaveAction->setEnabled(Model->isEditable(index));
+		SaveAsAction->setEnabled(Model->isEditable(index));
 		ExportAction->setEnabled(im != NULL);
 	}
 	else
@@ -197,7 +197,7 @@ void PapaTextureEditor::importImage()
 		if(Model->importImage(filename, TextureList->currentIndex()))
 			textureClicked(TextureList->currentIndex());
 		else
-			QMessageBox::critical(this, "Import failed", "I won't tell you why it failed, but this might be it:\n\tThe import image must be the same resolution at the current texture.\n\tThe texture format must be RGBA. I haven't finshed the others yet.\n\tThe papa file was read-only.");
+			QMessageBox::critical(this, "Import failed", "I won't tell you why it failed, but this might be it:\n- The import image must be the same resolution at the current texture.\n- The texture format must be RGBA. I haven't finshed the others yet.\n- The papa file was read-only.");
 	}
 }
 

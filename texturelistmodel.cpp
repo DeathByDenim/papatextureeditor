@@ -119,6 +119,20 @@ QString TextureListModel::info(const QModelIndex& index)
 		return "";
 }
 
+bool TextureListModel::isEditable(const QModelIndex& index)
+{
+	if(index.row() < Papas.count())
+	{
+		PapaFile *papa = Papas[index.row()];
+		if(papa)
+		{
+			return papa->canEncode();
+		}
+	}
+	
+	return false;
+}
+
 bool TextureListModel::importImage(const QString& name, const QModelIndex& index)
 {
 	if(!index.isValid() || !Papas[index.row()]->image(0))
@@ -128,8 +142,10 @@ bool TextureListModel::importImage(const QString& name, const QModelIndex& index
 	QImage newimage = reader->read();
 	delete reader;
 
-	if(Papas[index.row()]->size(0) == newimage.size() && Papas[index.row()]->format() == "A8R8G8B8")
+	if(Papas[index.row()]->size(0) == newimage.size() && Papas[index.row()]->canEncode())
 	{
+		qDebug() << "newimage.pixel(0, 0):" << qRed(newimage.pixel(0, 0)) << ", " << qGreen(newimage.pixel(0, 0)) << ", " << qBlue(newimage.pixel(0, 0));
+
 		return Papas[index.row()]->importImage(newimage, 0);
 	}
 	else

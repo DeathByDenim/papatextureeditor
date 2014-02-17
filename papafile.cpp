@@ -22,7 +22,7 @@
 
 #include <QDebug>
 #include <QImage>
-#include <qcolor.h>
+#include <QColor>
 #include <cmath>
 
 PapaFile::PapaFile(const QString& filename)
@@ -277,6 +277,8 @@ bool PapaFile::save(QString filename)
 
 	for(QList<texture_t>::iterator tex = Textures.begin(); tex != Textures.end(); ++tex)
 	{
+		qDebug() << "newimage.pixel(0, 0):" << qRed(tex->Image[0].pixel(0, 0)) << ", " << qGreen(tex->Image[0].pixel(0, 0)) << ", " << qBlue(tex->Image[0].pixel(0, 0));
+
 		switch(tex->Format)
 		{
 			case texture_t::A8R8G8B8:
@@ -384,34 +386,73 @@ bool PapaFile::save(QString filename)
 void PapaFile::findOptimalColours(PapaFile::colour_t& colour0, PapaFile::colour_t& colour1, const QList<colour_t> &colours)
 {
 	// Find extreme colours
-	QRgb maxdistance = 0;
-	int col1 = -1, col2 = -1;
+	float maxdistance = 0;
+	int col0 = -1, col1 = -1;
 	for(int i = 0; i < colours.count(); i++)
 	{
+		float ri = colours[i].rgb.red / 32.;
+		float gi = colours[i].rgb.green / 64.;
+		float bi = colours[i].rgb.blue / 32.;
 		for(int j = i + 1; j < colours.count(); j++)
 		{
-			QRgb distance = sqrt(
-				(colours[i].rgb.red - colours[j].rgb.red) * (colours[i].rgb.red - colours[j].rgb.red) / 1024. +
-				(colours[i].rgb.green - colours[j].rgb.green) * (colours[i].rgb.green - colours[j].rgb.green) / 4096. +
-				(colours[i].rgb.blue - colours[j].rgb.blue) * (colours[i].rgb.blue - colours[j].rgb.blue) / 1024.
-			);
+			float rj = colours[j].rgb.red / 32.;
+			float gj = colours[j].rgb.green / 64.;
+			float bj = colours[j].rgb.blue / 32.;
+
+			float distance = (ri - rj) * (ri - rj) + (gi - gj) * (gi - gj) + (bi - bj) * (bi - bj);
+
 			if(distance > maxdistance)
 			{
 				maxdistance = distance;
-				col1 = i;
-				col2 = j;
+				col0 = i;
+				col1 = j;
 			}
 		}
 	}
+	Q_ASSERT(col0 >= 0);
+	Q_ASSERT(col1 >= 0);
 
-	unsigned long chi2 = calculateChi2_four(colours[col1], colours[col2], colours);
-	qDebug() << "chi2 =" << chi2;
+	colour_t bestcolour0 = colours[col0];
+	colour_t bestcolour1 = colours[col1];
+	float lowestchi2 = calculateChi2_four(bestcolour0, bestcolour1, colours);
 
-	colour0.value = colours[col1].value;
-	colour1.value = colours[col2].value;
+	for(int i = 0; i < 100; i++)
+	{
+		colour_t c0 = bestcolour0;
+		colour_t c1 = bestcolour1;
+		c0.rgb.red += (5.0 * rand()) / RAND_MAX - 2.5;
+		c0.rgb.green += (5.0 * rand()) / RAND_MAX - 2.5;
+		c0.rgb.blue += (5.0 * rand()) / RAND_MAX - 2.5;
+		c1.rgb.red += (5.0 * rand()) / RAND_MAX - 2.5;
+		c1.rgb.green += (5.0 * rand()) / RAND_MAX - 2.5;
+		c1.rgb.blue += (5.0 * rand()) / RAND_MAX - 2.5;
+		float chi2 = calculateChi2_four(c0, c1, colours);
+
+		if(chi2 < lowestchi2)
+		{
+			lowestchi2 = chi2;
+			bestcolour0 = c0;
+			bestcolour1 = c1;
+		}
+	}
+
+	if(bestcolour0.value > bestcolour1.value)
+	{
+		colour0.value = bestcolour0.value;
+		colour1.value = bestcolour1.value;
+	}
+	else
+	{
+		colour0.value = bestcolour1.value;
+		colour1.value = bestcolour0.value;
+	}
 }
-
-unsigned long PapaFile::calculateChi2_four(colour_t col1, colour_t col2, const QList<colour_t> &colours)
+/*
+inline float colourDistance(const colour_t &col1, const colour_t &col2)
+{
+}
+*/
+float PapaFile::calculateChi2_four(colour_t col1, colour_t col2, const QList<colour_t> &colours)
 {
 	colour_t colourts[4];
 	colourts[0].value = col1.value;
@@ -423,24 +464,49 @@ unsigned long PapaFile::calculateChi2_four(colour_t col1, colour_t col2, const Q
 	colourts[2].rgb.blue = (2 * col1.rgb.blue + col2.rgb.blue) / 3;
 	colourts[3].value = col2.value;
 
-	unsigned long chi2 = 0;
+	float chi2 = 0;
 	for(QList<colour_t>::const_iterator col = colours.constBegin(); col != colours.constEnd(); ++col)
 	{
-		long distance = 9999999999;
+		float rcol = col->rgb.red / 32.;
+		float gcol = col->rgb.green / 64.;
+		float bcol = col->rgb.blue / 32.;
+		float mindistance = 9999999999;
 		for(int i = 0; i < 4; i++)
 		{
-			long distance2 =
-				(colourts[i].rgb.red - col->rgb.red) * (colourts[i].rgb.red - col->rgb.red) +
-				(colourts[i].rgb.green - col->rgb.green) * (colourts[i].rgb.green - col->rgb.green) +
-				(colourts[i].rgb.blue - col->rgb.blue) * (colourts[i].rgb.blue - col->rgb.blue);
-			if(distance2 < distance)
-				distance = distance2;
+			float ri = colourts[i].rgb.red / 32.;
+			float gi = colourts[i].rgb.green / 64.;
+			float bi = colourts[i].rgb.blue / 32.;
+			float distance = (ri - rcol) * (ri - rcol) + (gi - gcol) * (gi - gcol) + (bi - bcol) * (bi - bcol);
+
+			if(distance < mindistance)
+				mindistance = distance;
 		}
 
-		chi2 += distance;
+		chi2 += mindistance;
 	}
 
 	return chi2;
+}
+
+quint8 PapaFile::findClosestColour(QRgb pixelcolour, QRgb* palette)
+{
+	quint8 closestindex = 255;
+	float distance = 99999999999999;
+	for(quint8 i = 0; i < 4; i++)
+	{
+		float distance2 =
+			(qRed(pixelcolour) - qRed(palette[i])) * (qRed(pixelcolour) - qRed(palette[i])) +
+			(qGreen(pixelcolour) - qGreen(palette[i])) * (qGreen(pixelcolour) - qGreen(palette[i])) +
+			(qBlue(pixelcolour) - qBlue(palette[i])) * (qBlue(pixelcolour) - qBlue(palette[i]));
+			
+		if(distance2 < distance)
+		{
+			distance = distance2;
+			closestindex = i;
+		}
+	}
+
+	return closestindex;
 }
 
 
@@ -594,10 +660,10 @@ bool PapaFile::decodeDXT1(PapaFile::texture_t& texture)
 				palette[2] = qRgb(255*colour2.rgb.red/32, 255*colour2.rgb.green/64, 255*colour2.rgb.blue/32);
 				palette[3] = qRgb(0, 0, 0);
 			}
-
+/*
 			if(texture.sRGB)
 				convertFromSRGB(palette, 4);
-
+*/
 			int x0 = j % ((width+3)/4);
 			int y0 = j / ((height+3)/4);
 
@@ -622,11 +688,13 @@ bool PapaFile::decodeDXT1(PapaFile::texture_t& texture)
 
 bool PapaFile::encodeDXT1(PapaFile::texture_t& texture)
 {
-	struct DXT1 *ptr = (struct DXT1 *)(texture.Data.data());
+	char *originalpointer = texture.Data.data();
+	struct DXT1 *ptr = (struct DXT1 *)(originalpointer);
+//	struct DXT1 *ptr = (struct DXT1 *)(texture.Data.data());
 
 	for(int m = 0; m < texture.NumberMinimaps; ++m)
 	{
-		QImage image(texture.Image[m]);
+		QImage image(texture.Image[m].convertToFormat(QImage::Format_RGB16)); // Provides dithering. Nice!
 		qint16 width = image.width();
 		qint16 height = image.height();
 
@@ -637,15 +705,16 @@ bool PapaFile::encodeDXT1(PapaFile::texture_t& texture)
 			int x0 = j % ((width+3)/4);
 			int y0 = j / ((height+3)/4);
 
+			// TODO: This can be sped up by directly accessing image.bits() and casting to colour_t.
 			for(int y = 0; y < std::min(4, (int)height); ++y)
 			{
 				for(int x = 0; x < std::min(4, (int)width); ++x)
 				{
-					QRgb qcolour = image.pixel(x0 + x, y0 + y);
+					QRgb qcolour = image.pixel(4*x0 + x, 4*y0 + y);
 					colour_t colour;
-					colour.rgb.red = 32 * qRed(qcolour) / 255;
-					colour.rgb.green = 64 * qGreen(qcolour) / 255;
-					colour.rgb.blue = 32 * qBlue(qcolour) / 255;
+					colour.rgb.red = 32 * qRed(qcolour) / 256;
+					colour.rgb.green = 64 * qGreen(qcolour) / 256;
+					colour.rgb.blue = 32 * qBlue(qcolour) / 256;
 					bool havealready = false;
 					for(int i = 0; i < colours.count(); i++)
 					{
@@ -669,8 +738,16 @@ bool PapaFile::encodeDXT1(PapaFile::texture_t& texture)
 					colour0 = colours[0];
 					break;
 				case 2:
-					colour0 = colours[0];
-					colour1 = colours[1];
+					if(colours[0].value > colours[1].value)
+					{
+						colour0.value = colours[0].value;
+						colour1.value = colours[1].value;
+					}
+					else
+					{
+						colour0.value = colours[1].value;
+						colour1.value = colours[0].value;
+					}
 					break;
 				default:
 					findOptimalColours(colour0, colour1, colours);
@@ -678,19 +755,19 @@ bool PapaFile::encodeDXT1(PapaFile::texture_t& texture)
 
 			colour_t colour2, colour3;
 			QRgb palette[4];
-			if(ptr->colour0.value > ptr->colour1.value)
+			if(colour0.value > colour1.value)
 			{	// Four colours
 				
 				// Interpolate the other two colours.
-				colour2.rgb.red = (2 * ptr->colour0.rgb.red + ptr->colour1.rgb.red) / 3;
-				colour2.rgb.green = (2 * ptr->colour0.rgb.green + ptr->colour1.rgb.green) / 3;
-				colour2.rgb.blue = (2 * ptr->colour0.rgb.blue + ptr->colour1.rgb.blue) / 3;
-				colour3.rgb.red = (ptr->colour0.rgb.red + 2 * ptr->colour1.rgb.red) / 3;
-				colour3.rgb.green = (ptr->colour0.rgb.green + 2 * ptr->colour1.rgb.green) / 3;
-				colour3.rgb.blue = (ptr->colour0.rgb.blue + 2 * ptr->colour1.rgb.blue) / 3;
+				colour2.rgb.red = (2 * colour0.rgb.red + colour1.rgb.red) / 3;
+				colour2.rgb.green = (2 * colour0.rgb.green + colour1.rgb.green) / 3;
+				colour2.rgb.blue = (2 * colour0.rgb.blue + colour1.rgb.blue) / 3;
+				colour3.rgb.red = (colour0.rgb.red + 2 * colour1.rgb.red) / 3;
+				colour3.rgb.green = (colour0.rgb.green + 2 * colour1.rgb.green) / 3;
+				colour3.rgb.blue = (colour0.rgb.blue + 2 * colour1.rgb.blue) / 3;
 
-				palette[0] = qRgb(255*ptr->colour0.rgb.red/32, 255*ptr->colour0.rgb.green/64, 255*ptr->colour0.rgb.blue/32);
-				palette[1] = qRgb(255*ptr->colour1.rgb.red/32, 255*ptr->colour1.rgb.green/64, 255*ptr->colour1.rgb.blue/32);
+				palette[0] = qRgb(255*colour0.rgb.red/32, 255*colour0.rgb.green/64, 255*colour0.rgb.blue/32);
+				palette[1] = qRgb(255*colour1.rgb.red/32, 255*colour1.rgb.green/64, 255*colour1.rgb.blue/32);
 				palette[2] = qRgb(255*colour2.rgb.red/32, 255*colour2.rgb.green/64, 255*colour2.rgb.blue/32);
 				palette[3] = qRgb(255*colour3.rgb.red/32, 255*colour3.rgb.green/64, 255*colour3.rgb.blue/32);
 			}
@@ -698,30 +775,36 @@ bool PapaFile::encodeDXT1(PapaFile::texture_t& texture)
 			{	// Three colours with black
 				
 				// The remaining colour is the average of the other two colours.
-				colour2.rgb.red = (ptr->colour0.rgb.red + ptr->colour1.rgb.red) / 2;  
-				colour2.rgb.green = (ptr->colour0.rgb.green + ptr->colour1.rgb.green) / 2;  
-				colour2.rgb.blue = (ptr->colour0.rgb.blue + ptr->colour1.rgb.blue) / 2;  
+				colour2.rgb.red = (colour0.rgb.red + colour1.rgb.red) / 2;  
+				colour2.rgb.green = (colour0.rgb.green + colour1.rgb.green) / 2;  
+				colour2.rgb.blue = (colour0.rgb.blue + colour1.rgb.blue) / 2;  
 				colour3.value = 0;
 
-				palette[0] = qRgb(255*ptr->colour0.rgb.red/32, 255*ptr->colour0.rgb.green/64, 255*ptr->colour0.rgb.blue/32);
-				palette[1] = qRgb(255*ptr->colour1.rgb.red/32, 255*ptr->colour1.rgb.green/64, 255*ptr->colour1.rgb.blue/32);
+				palette[0] = qRgb(255*colour0.rgb.red/32, 255*colour0.rgb.green/64, 255*colour0.rgb.blue/32);
+				palette[1] = qRgb(255*colour1.rgb.red/32, 255*colour1.rgb.green/64, 255*colour1.rgb.blue/32);
 				palette[2] = qRgb(255*colour2.rgb.red/32, 255*colour2.rgb.green/64, 255*colour2.rgb.blue/32);
 				palette[3] = qRgb(0, 0, 0);
 			}
-
+/*
 			if(texture.sRGB)
 				convertToSRGB(palette, 4);
-
-			quint32 rgbbits = ptr->rgbbits;
-			for(int y = 0; y < std::min(4, (int)height); ++y)
+*/
+			quint32 rgbbits = 0;;
+			for(int y = std::min(4, (int)height) - 1; y >= 0; --y)
 			{
-				for(int x = 0; x < std::min(4, (int)width); ++x)
+				for(int x = std::min(4, (int)width) - 1; x >= 0; --x)
 				{
-					quint8 colourindex = rgbbits & 0b11;
-					image.setPixel(4*x0 + x, 4*y0 + y, qRgb(qRed(palette[colourindex]), qGreen(palette[colourindex]), qBlue(palette[colourindex])));
-					rgbbits >>= 2;
+					rgbbits <<= 2;
+					QRgb pixelcolour = image.pixel(4*x0 + x, 4*y0 + y);
+					quint8 colourindex = findClosestColour(pixelcolour, palette);
+					Q_ASSERT(colourindex < 4);
+					rgbbits += colourindex;
 				}
 			}
+
+			ptr->colour0.value = colour0.value;
+			ptr->colour1.value = colour1.value;
+			ptr->rgbbits = rgbbits;
 
 			ptr++;
 		}
@@ -906,6 +989,7 @@ bool PapaFile::importImage(const QImage &newimage, const int textureindex)
 
 		Textures[textureindex].Image.clear();
 		Textures[textureindex].Image.push_back(newimage);
+		qDebug() << "newimage.pixel(0, 0):" << qRed(newimage.pixel(0, 0)) << ", " << qGreen(newimage.pixel(0, 0)) << ", " << qBlue(newimage.pixel(0, 0));
 		for(int m = 1; m < Textures[textureindex].NumberMinimaps; m++)
 		{
 			int divider = pow(2, m);

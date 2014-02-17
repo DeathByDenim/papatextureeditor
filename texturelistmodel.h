@@ -40,6 +40,7 @@ public:
 	QString info(const QModelIndex& index);
 	bool savePapa(const QModelIndex& index, const QString& filename = "");
 	QString lastError() {return LastError;}
+	bool isEditable(const QModelIndex& index);
 
 private:
 	QList<PapaFile *> Papas;

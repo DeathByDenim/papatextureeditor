@@ -45,6 +45,7 @@ public:
 	QString name() {return Bones[0].name;}
 	bool importImage(const QImage& newimage, const int textureindex);
 	bool isModified() {return Modified;}
+	bool canEncode() {return Textures.count() > 0 ? (Textures[0].Format == texture_t::A8R8G8B8 || Textures[0].Format == texture_t::X8R8G8B8 || Textures[0].Format == texture_t::DXT1) : false;}
 
 private:
 	// File format
@@ -155,6 +156,12 @@ private:
 			quint16 green : 6;
 			quint16 blue : 5;
 		} rgb;
+		struct
+		{
+			quint16 blue : 5;
+			quint16 green : 6;
+			quint16 red : 5;
+		} q_rgb; // For QImage in the RGB16 format using bits() method.
 	};
 
 	struct DXT1
@@ -186,7 +193,8 @@ private:
 	void convertFromSRGB(QRgb* palette, int size);
     void convertToSRGB(QRgb* palette, int size);
     void findOptimalColours(PapaFile::colour_t& colour0, PapaFile::colour_t& colour1, const QList<PapaFile::colour_t>& colours);
-    long unsigned int calculateChi2_four(PapaFile::colour_t col1, PapaFile::colour_t col2, const QList< PapaFile::colour_t >& colours);
+    float calculateChi2_four(PapaFile::colour_t col1, PapaFile::colour_t col2, const QList< PapaFile::colour_t >& colours);
+    quint8 findClosestColour(QRgb pixelcolour, QRgb* palette);
 
 	bool Valid;
 	bool Modified;
