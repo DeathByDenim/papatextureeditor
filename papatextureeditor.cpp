@@ -229,13 +229,13 @@ void PapaTextureEditor::exportImage()
 	QString filename = QFileDialog::getSaveFileName(this, "Save image", settings.value("exportdirectory").toString(), filter);
 	if(filename.length() > 0)
 	{
-		settings.setValue("exportdirectory", QFileInfo(filename).canonicalPath());
-
 		QImageWriter writer(filename);
 		QByteArray format;
 		format.append(QFileInfo(filename).suffix());
 		writer.setFormat(format);
 		writer.write((*im));
+
+		settings.setValue("exportdirectory", QFileInfo(filename).canonicalPath());
 	}
 }
 

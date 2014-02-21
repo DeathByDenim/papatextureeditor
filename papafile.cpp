@@ -958,7 +958,21 @@ void PapaFile::convertFromSRGB(QRgb* palette, int size)
 
 void PapaFile::convertToSRGB(QRgb* palette, int size)
 {
-// TODO: Implement
+	// From https://en.wikipedia.org/w/index.php?title=SRGB&oldid=586514424#The_forward_transformation_.28CIE_xyY_or_CIE_XYZ_to_sRGB.29
+	for(int i = 0; i < size; i++)
+	{
+		float red = qRed(palette[i]) / 255.;
+		float green = qGreen(palette[i]) / 255.;
+		float blue = qBlue(palette[i]) / 255.;
+		
+		float newred = 
+
+		palette[i] = qRgb(
+			255*(0.4124*red + 0.3576*green + 0.1805*blue),
+			255*(0.2126*red + 0.7152*green + 0.0722*blue),
+			255*(0.0193*red + 0.1192*green + 0.9502*blue)
+		);
+	}
 }
 
 
@@ -989,7 +1003,6 @@ bool PapaFile::importImage(const QImage &newimage, const int textureindex)
 
 		Textures[textureindex].Image.clear();
 		Textures[textureindex].Image.push_back(newimage);
-		qDebug() << "newimage.pixel(0, 0):" << qRed(newimage.pixel(0, 0)) << ", " << qGreen(newimage.pixel(0, 0)) << ", " << qBlue(newimage.pixel(0, 0));
 		for(int m = 1; m < Textures[textureindex].NumberMinimaps; m++)
 		{
 			int divider = pow(2, m);
