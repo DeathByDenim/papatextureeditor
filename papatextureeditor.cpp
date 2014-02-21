@@ -121,7 +121,7 @@ void PapaTextureEditor::saveAsPapa()
 	QString filename = QFileDialog::getSaveFileName(this, "Save texture as papa", settings.value("saveasdirectory").toString(), "Papa files(*.papa)");
 	if(Model && filename.length() > 0)
 	{
-		settings.setValue("saveasdirectory", QFileInfo(filename).canonicalPath());
+		settings.setValue("saveasdirectory", QFileInfo(filename).absolutePath());
 		if(!Model->savePapa(TextureList->currentIndex(), filename))
 			QMessageBox::critical(this, "Save failed", "Couldn't save file, reason: " + Model->lastError());
 	}
@@ -133,7 +133,7 @@ void PapaTextureEditor::openDirectory()
 	QString foldername = QFileDialog::getExistingDirectory(this, "Open texture folder", settings.value("texturedirectory").toString());
 	if(Model && foldername.length() > 0)
 	{
-		settings.setValue("texturedirectory", QFileInfo(foldername).canonicalPath());
+		settings.setValue("texturedirectory", QFileInfo(foldername).absolutePath());
 		if(!Model->loadFromDirectory(foldername))
 		{
 			QMessageBox::critical(this, "I/O error", QString("Couldn't open \"%1\".").arg(foldername));

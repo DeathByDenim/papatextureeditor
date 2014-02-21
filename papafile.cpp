@@ -277,8 +277,6 @@ bool PapaFile::save(QString filename)
 
 	for(QList<texture_t>::iterator tex = Textures.begin(); tex != Textures.end(); ++tex)
 	{
-		qDebug() << "newimage.pixel(0, 0):" << qRed(tex->Image[0].pixel(0, 0)) << ", " << qGreen(tex->Image[0].pixel(0, 0)) << ", " << qBlue(tex->Image[0].pixel(0, 0));
-
 		switch(tex->Format)
 		{
 			case texture_t::A8R8G8B8:
@@ -512,7 +510,8 @@ quint8 PapaFile::findClosestColour(QRgb pixelcolour, QRgb* palette)
 
 bool PapaFile::decodeA8R8G8B8(PapaFile::texture_t& texture)
 {
-	int j = 0;
+	int offset = 0;
+
 	for(int m = 0; m < texture.NumberMinimaps; m++)
 	{
 		int divider = pow(2, m);
@@ -523,12 +522,13 @@ bool PapaFile::decodeA8R8G8B8(PapaFile::texture_t& texture)
 //		convertFromSRGB();
 
 		QImage image = QImage(width, height, QImage::Format_ARGB32);
-		for(; j < 4 * width * height; j += 4)
+		for(int j = 0; j < 4 * width * height; j += 4)
 		{
 			int pixelindex = j / 4;
-			image.setPixel(pixelindex % width, (pixelindex / width), qRgba(texture.Data[j], texture.Data[j+1], texture.Data[j+2], texture.Data[j+3]));
+			image.setPixel(pixelindex % width, (pixelindex / width), qRgba(texture.Data[offset + j], texture.Data[offset + j+1], texture.Data[offset + j+2], texture.Data[offset + j+3]));
 		}
 		texture.Image.push_back(image);
+		offset += 4 * width * height;
 	}
 
 	return true;
@@ -536,7 +536,7 @@ bool PapaFile::decodeA8R8G8B8(PapaFile::texture_t& texture)
 
 bool PapaFile::encodeA8R8G8B8(PapaFile::texture_t& texture)
 {
-	int j = 0;
+	int offset = 0;
 
 	for(int m = 0; m < texture.NumberMinimaps; m++)
 	{
@@ -548,15 +548,16 @@ bool PapaFile::encodeA8R8G8B8(PapaFile::texture_t& texture)
 //		convertFromSRGB();
 
 		QImage image = texture.Image[m];
-		for(; j < 4 * width * height; j += 4)
+		for(int j = 0; j < 4 * width * height; j += 4)
 		{
 			int pixelindex = j / 4;
 			QRgb colour = image.pixel(pixelindex % width, pixelindex / width);
-			texture.Data[j] = qRed(colour);
-			texture.Data[j+1] = qGreen(colour);
-			texture.Data[j+2] = qBlue(colour);
-			texture.Data[j+3] = qAlpha(colour);
+			texture.Data[offset + j] = qRed(colour);
+			texture.Data[offset + j+1] = qGreen(colour);
+			texture.Data[offset + j+2] = qBlue(colour);
+			texture.Data[offset + j+3] = qAlpha(colour);
 		}
+		offset += 4 * width * height;
 	}
 
 	return true;
@@ -566,9 +567,9 @@ bool PapaFile::encodeA8R8G8B8(PapaFile::texture_t& texture)
 bool PapaFile::decodeX8R8G8B8(PapaFile::texture_t& texture)
 {
 	// Same as A8R8G8B8, but alpha remains unused.
-	
-	int j = 0;
-	
+
+	int offset = 0;
+
 	for(int m = 0; m < texture.NumberMinimaps; m++)
 	{
 		int divider = pow(2, m);
@@ -576,12 +577,13 @@ bool PapaFile::decodeX8R8G8B8(PapaFile::texture_t& texture)
 		qint16 height = texture.Height / divider;
 
 		QImage image = QImage(width, height, QImage::Format_RGB32);
-		for(; j < 4 * width * height; j += 4)
+		for(int j = 0; j < 4 * width * height; j += 4)
 		{
 			int pixelindex = j / 4;
-			image.setPixel(pixelindex % width, (pixelindex / width), qRgba(texture.Data[j], texture.Data[j+1], texture.Data[j+2], 255));
+			image.setPixel(pixelindex % width, (pixelindex / width), qRgb(texture.Data[offset + j], texture.Data[offset + j+1], texture.Data[offset + j+2]));
 		}
 		texture.Image.push_back(image);
+		offset += 4 * width * height;
 	}
 
 	return true;
@@ -589,7 +591,7 @@ bool PapaFile::decodeX8R8G8B8(PapaFile::texture_t& texture)
 
 bool PapaFile::encodeX8R8G8B8(PapaFile::texture_t& texture)
 {
-	int j = 0;
+	int offset = 0;
 
 	for(int m = 0; m < texture.NumberMinimaps; m++)
 	{
@@ -598,15 +600,16 @@ bool PapaFile::encodeX8R8G8B8(PapaFile::texture_t& texture)
 		qint16 height = texture.Height / divider;
 
 		QImage image = texture.Image[m];
-		for(; j < 4 * width * height; j += 4)
+		for(int j = 0; j < 4 * width * height; j += 4)
 		{
 			int pixelindex = j / 4;
 			QRgb colour = image.pixel(pixelindex % width, pixelindex / width);
-			texture.Data[j] = qRed(colour);
-			texture.Data[j+1] = qGreen(colour);
-			texture.Data[j+2] = qBlue(colour);
-//			texture.Data[j+3] = <NOT USED>;
+			texture.Data[offset + j] = qRed(colour);
+			texture.Data[offset + j+1] = qGreen(colour);
+			texture.Data[offset + j+2] = qBlue(colour);
+//			texture.Data[offset + j+3] = <NOT USED>;
 		}
+		offset += 4 * width * height;
 	}
 
 	return true;
