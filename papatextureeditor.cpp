@@ -20,7 +20,7 @@
 #include "papafile.h"
 #include "helpdialog.h"
 
-#define VERSION "0.2"
+#define VERSION "0.3"
 
 PapaTextureEditor::PapaTextureEditor()
  : Image(NULL), Label(NULL), Model(NULL), TextureList(NULL), InfoLabel(NULL)
@@ -58,22 +58,29 @@ PapaTextureEditor::PapaTextureEditor()
 	setCentralWidget( horsplitter );
 	QAction* quitAction = new QAction(this);
 	quitAction->setText( "&Quit" );
+	quitAction->setMenuRole(QAction::QuitRole);
 	quitAction->setShortcut(QKeySequence("Ctrl+q"));
+	quitAction->setIcon(style()->standardIcon(QStyle::SP_DialogCloseButton));
 	SaveAction = new QAction(this);
 	SaveAction->setText( "&Save" );
+	SaveAction->setIcon(style()->standardIcon(QStyle::SP_DialogSaveButton));
 	SaveAction->setShortcut(QKeySequence("Ctrl+s"));
 	SaveAsAction = new QAction(this);
 	SaveAsAction->setText( "S&ave as..." );
+	SaveAsAction->setIcon(style()->standardIcon(QStyle::SP_DialogSaveButton));
 	SaveAsAction->setShortcut(QKeySequence("Ctrl+Shift+s"));
 	ImportAction = new QAction(this);
 	ImportAction->setText( "&Import..." );
+	ImportAction->setIcon(style()->standardIcon(QStyle::SP_DialogOpenButton));
 	ImportAction->setShortcut(QKeySequence("Ctrl+i"));
 	ExportAction = new QAction(this);
 	ExportAction->setText( "&Export..." );
+	ExportAction->setIcon(style()->standardIcon(QStyle::SP_DialogSaveButton));
 	ExportAction->setShortcut(QKeySequence("Ctrl+e"));
 	QAction* openAction = new QAction(this);
 	openAction->setText( "&Open directory..." );
 	openAction->setShortcut(QKeySequence("Ctrl+o"));
+	openAction->setIcon(style()->standardIcon(QStyle::SP_DirOpenIcon));
 	connect(quitAction, SIGNAL(triggered()), SLOT(close()));
 	connect(SaveAction, SIGNAL(triggered()), SLOT(savePapa()));
 	connect(SaveAsAction, SIGNAL(triggered()), SLOT(saveAsPapa()));
@@ -90,9 +97,12 @@ PapaTextureEditor::PapaTextureEditor()
 
 	QAction* aboutAction = new QAction(this);
 	aboutAction->setText("&About...");
+	aboutAction->setMenuRole(QAction::AboutRole);
+	aboutAction->setIcon(style()->standardIcon(QStyle::SP_MessageBoxInformation));
 	connect(aboutAction, SIGNAL(triggered()), SLOT(about()));
 	QAction* helpAction = new QAction(this);
 	helpAction->setText("&Help...");
+	helpAction->setIcon(style()->standardIcon(QStyle::SP_DialogHelpButton));
 	helpAction->setShortcut(QKeySequence("f1"));
 	connect(helpAction, SIGNAL(triggered()), SLOT(help()));
 	QMenu *helpMenu = menuBar()->addMenu("&Help");
