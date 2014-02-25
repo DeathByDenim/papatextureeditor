@@ -930,6 +930,7 @@ QString PapaFile::format()
 
 void PapaFile::convertFromSRGB(QRgb* palette, int size)
 {
+/*
 	// From https://en.wikipedia.org/w/index.php?title=SRGB&oldid=586514424#The_reverse_transformation
 	for(int i = 0; i < size; i++)
 	{
@@ -957,10 +958,11 @@ void PapaFile::convertFromSRGB(QRgb* palette, int size)
 			255*(0.0193*red + 0.1192*green + 0.9502*blue)
 		);
 	}
+	*/
 }
 
 void PapaFile::convertToSRGB(QRgb* palette, int size)
-{
+{/*
 	// From https://en.wikipedia.org/w/index.php?title=SRGB&oldid=586514424#The_forward_transformation_.28CIE_xyY_or_CIE_XYZ_to_sRGB.29
 	for(int i = 0; i < size; i++)
 	{
@@ -975,7 +977,7 @@ void PapaFile::convertToSRGB(QRgb* palette, int size)
 			255*(0.2126*red + 0.7152*green + 0.0722*blue),
 			255*(0.0193*red + 0.1192*green + 0.9502*blue)
 		);
-	}
+	}*/
 }
 
 
