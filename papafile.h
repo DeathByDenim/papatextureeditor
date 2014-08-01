@@ -152,16 +152,10 @@ private:
 		quint16 value;
 		struct
 		{
-			quint16 red : 5;
-			quint16 green : 6;
 			quint16 blue : 5;
+			quint16 green : 6;
+			quint16 red : 5;
 		} rgb;
-		struct
-		{
-			quint16 blue : 5;
-			quint16 green : 6;
-			quint16 red : 5;
-		} q_rgb; // For QImage in the RGB16 format using bits() method.
 	};
 
 	struct DXT1

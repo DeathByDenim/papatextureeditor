@@ -878,8 +878,17 @@ bool PapaFile::decodeDXT5(PapaFile::texture_t& texture)
 			if(texture.sRGB)
 				convertFromSRGB(palette, 4);
 
-			int x0 = j % (texture.Width/(4*divider));
-			int y0 = j / (texture.Height/(4*divider));
+			int x0;
+			if(texture.Width/(4*divider) > 0)
+				x0 = j % (texture.Width/(4*divider));
+			else
+				x0 = j;
+
+			int y0;
+			if(texture.Height/(4*divider) > 0)
+				y0 = j / (texture.Height/(4*divider));
+			else
+				y0 = j;
 
 			quint32 rgbbits = ptr->rgbbits;
 			for(int y = 0; y < 4; ++y)
