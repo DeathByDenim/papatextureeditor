@@ -4,10 +4,6 @@ find_package(Qt4 REQUIRED)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
 
-if(WIN32)
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static-libgcc -static-libstdc++")
-endif()
-
 include_directories(${QT_INCLUDES} ${CMAKE_CURRENT_BINARY_DIR})
 
 set(papatextureeditor helpdialog.cpp papafile.cpp texturelistmodel.cpp papatextureeditor.cpp main.cpp)

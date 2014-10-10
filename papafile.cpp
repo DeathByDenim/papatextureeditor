@@ -19,8 +19,6 @@
 
 #include "papafile.h"
 #include <QFile>
-
-#include <QDebug>
 #include <QImage>
 #include <QColor>
 #include <cmath>
@@ -134,6 +132,7 @@ bool PapaFile::load(QString filename)
 			LastError = "Failed to seek to TextureInformation";
 			return false;
 		}
+
 		for(qint64 i = 0; i < numberOfTextures; i++)
 		{
 			TextureInformationHeader textureinformationheader;
@@ -851,7 +850,13 @@ bool PapaFile::decodeDXT5(PapaFile::texture_t& texture)
 
 			// Get the alpha value for each pixel.
 			quint8 alphatexel[4][4];
-			quint64 alphabits = ptr->alphabits;
+			quint64 alphabits = 0;
+			for(int k = 5; k >= 0; k--)
+			{
+				alphabits >>= 8;
+				alphabits += ptr->alphabits[k];
+			}
+
 			for(int y = 0; y < 4; ++y)
 			{
 				for(int x = 0; x < 4; ++x)

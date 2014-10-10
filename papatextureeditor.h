@@ -2,6 +2,7 @@
 #define papatextureeditor_H
 
 #include <QtGui/QMainWindow>
+#include <QDir>
 
 class TextureListModel;
 class QLabel;
@@ -25,6 +26,8 @@ private:
 public:
 	PapaTextureEditor();
 	virtual ~PapaTextureEditor();
+	
+	void openDir(QDir openme);
 	
 public slots:
 	void openDirectory();

@@ -20,7 +20,7 @@
 #include "papafile.h"
 #include "helpdialog.h"
 
-#define VERSION "0.3.1"
+#define VERSION "0.4"
 
 PapaTextureEditor::PapaTextureEditor()
  : Image(NULL), Label(NULL), Model(NULL), TextureList(NULL), InfoLabel(NULL)
@@ -258,6 +258,18 @@ void PapaTextureEditor::help()
 {
 	HelpDialog *helpDialog = new HelpDialog(this);
 	helpDialog->exec();
+}
+
+void PapaTextureEditor::openDir(QDir openme)
+{
+	qDebug() << openme;
+	if(Model)
+	{
+		if(!Model->loadFromDirectory(openme.absolutePath()))
+		{
+			QMessageBox::critical(this, "I/O error", QString("Couldn't open \"%1\".").arg(openme.absolutePath()));
+		}
+	}
 }
 
 #include "papatextureeditor.moc"

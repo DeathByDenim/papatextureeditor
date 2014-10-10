@@ -33,6 +33,9 @@ TextureListModel::TextureListModel(QObject* parent)
 
 TextureListModel::~TextureListModel()
 {
+	for(QList<PapaFile *>::iterator papa = Papas.begin(); papa != Papas.end(); ++papa)
+		delete (*papa);
+	Papas.clear();
 }
 
 QVariant TextureListModel::data(const QModelIndex& index, int role) const
@@ -69,6 +72,8 @@ bool TextureListModel::loadFromDirectory(const QString& foldername)
 	QDir folder(foldername);
 	if(!folder.exists())
 		return false;
+	
+	qDebug() << "It exists!";
 
 	for(QList<PapaFile *>::iterator papa = Papas.begin(); papa != Papas.end(); ++papa)
 		delete (*papa);
@@ -76,6 +81,8 @@ bool TextureListModel::loadFromDirectory(const QString& foldername)
 
 	beginResetModel();
 	QStringList papafiles = folder.entryList(QStringList("*.papa"), QDir::Files | QDir::Readable, QDir::Name);
+	qDebug() << "papafiles:" << papafiles;
+	papafiles << "imperial_delta_diffuse.papa";
 	for(QStringList::const_iterator papafile = papafiles.constBegin(); papafile != papafiles.constEnd(); ++papafile)
 	{
 		qDebug() << *papafile;

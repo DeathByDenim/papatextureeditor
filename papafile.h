@@ -169,7 +169,7 @@ private:
 	{
 		quint8 alpha0;
 		quint8 alpha1;
-		quint64 alphabits : 48;
+		quint8 alphabits[6];
 		colour_t colour0;
 		colour_t colour1;
 		quint32 rgbbits;
