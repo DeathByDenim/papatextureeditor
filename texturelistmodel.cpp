@@ -20,11 +20,10 @@
 #include "texturelistmodel.h"
 #include "papafileheader.h"
 #include <QFile>
-
-#include <QDebug>
 #include <QDir>
 #include <QImageReader>
 #include <QBrush>
+#include <QDebug>
 
 TextureListModel::TextureListModel(QObject* parent)
  : QAbstractListModel(parent), LastError("")
@@ -72,8 +71,6 @@ bool TextureListModel::loadFromDirectory(const QString& foldername)
 	QDir folder(foldername);
 	if(!folder.exists())
 		return false;
-	
-	qDebug() << "It exists!";
 
 	for(QList<PapaFile *>::iterator papa = Papas.begin(); papa != Papas.end(); ++papa)
 		delete (*papa);
@@ -81,8 +78,6 @@ bool TextureListModel::loadFromDirectory(const QString& foldername)
 
 	beginResetModel();
 	QStringList papafiles = folder.entryList(QStringList("*.papa"), QDir::Files | QDir::Readable, QDir::Name);
-	qDebug() << "papafiles:" << papafiles;
-	papafiles << "imperial_delta_diffuse.papa";
 	for(QStringList::const_iterator papafile = papafiles.constBegin(); papafile != papafiles.constEnd(); ++papafile)
 	{
 		qDebug() << *papafile;
@@ -151,39 +146,11 @@ bool TextureListModel::importImage(const QString& name, const QModelIndex& index
 
 	if(Papas[index.row()]->size(0) == newimage.size() && Papas[index.row()]->canEncode())
 	{
-		qDebug() << "newimage.pixel(0, 0):" << qRed(newimage.pixel(0, 0)) << ", " << qGreen(newimage.pixel(0, 0)) << ", " << qBlue(newimage.pixel(0, 0));
-
 		return Papas[index.row()]->importImage(newimage, 0);
 	}
 	else
 		return false;
 }
-/*
-bool TextureListModel::saveImage(const QModelIndex &index)
-{
-	if(!index.isValid())
-		return false;
-
-	QFile papafile(Images[index.row()].papaFileName);
-	if(!papafile.open(QIODevice::ReadWrite))
-		return false;
-
-	papafile.seek(Images[index.row()].textureOffset);
-
-	QImage image = Images[index.row()].image;
-	QByteArray data(4*image.width()*image.height(), Qt::Uninitialized);
-	for(int i = 0; i < 4 * image.width()*image.height(); i += 4)
-	{
-		int pixelindex = i / 4;
-		QRgb colour = image.pixel(pixelindex % 1024, image.height() - 1 - (pixelindex / 1024));
-		data[i] = (unsigned char)qRed(colour);
-		data[i+1] = (unsigned char)qGreen(colour);
-		data[i+2] = (unsigned char)qBlue(colour);
-		data[i+3] = (unsigned char)qAlpha(colour);
-	}
-	papafile.write(data);
-}
-*/
 
 bool TextureListModel::savePapa(const QModelIndex& index, const QString& filename)
 {
