@@ -851,11 +851,12 @@ bool PapaFile::decodeDXT5(PapaFile::texture_t& texture)
 			// Get the alpha value for each pixel.
 			quint8 alphatexel[4][4];
 			quint64 alphabits = 0;
-			for(int k = 5; k >= 0; k--)
+			quint8 fakebits[8] = {0,0,0,0,0,0,0,0};
+			for(int k = 0; k < 6; k++)
 			{
-				alphabits >>= 8;
-				alphabits += ptr->alphabits[k];
+				fakebits[k] = ptr->alphabits[k];
 			}
+			alphabits = *((quint64 *)&fakebits);
 
 			for(int y = 0; y < 4; ++y)
 			{
