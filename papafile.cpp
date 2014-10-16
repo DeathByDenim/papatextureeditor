@@ -915,7 +915,7 @@ bool PapaFile::decodeDXT5(PapaFile::texture_t& texture)
 	return true;
 }
 
-bool PapaFile::encodeDXT5(PapaFile::texture_t& texture)
+bool PapaFile::encodeDXT5(PapaFile::texture_t& /*texture*/)
 {
 	return false;
 }

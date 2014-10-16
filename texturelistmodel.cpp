@@ -53,7 +53,7 @@ QVariant TextureListModel::data(const QModelIndex& index, int role) const
 	}
 }
 
-int TextureListModel::rowCount(const QModelIndex& parent) const
+int TextureListModel::rowCount(const QModelIndex&) const
 {
 	return Papas.count();
 }
